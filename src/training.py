@@ -44,6 +44,10 @@ class Trainer:
             device: 'cuda' or 'cpu'
             checkpoint_dir: Directory for saving checkpoints
         """
+        if isinstance(device, str) and device.startswith("cuda") and not torch.cuda.is_available():
+            logger.warning("CUDA requested but not available; falling back to CPU.")
+            device = "cpu"
+
         self.model = model.to(device)
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -76,10 +80,32 @@ class Trainer:
         batch_count = 0
         
         for batch_idx, batch in enumerate(train_loader):
+            if batch is None:
+                continue
+            if not isinstance(batch, dict):
+                raise TypeError(f"Expected batch to be a dict, got {type(batch)}. Did you set the correct collate_fn?")
+
+            if "labels" in batch:
+                labels = batch["labels"]
+            elif "label" in batch:  # legacy key
+                labels = batch["label"]
+            else:
+                raise KeyError("Batch missing required key 'labels' (or legacy 'label').")
+
+            if "spectra" in batch:
+                spectra = batch["spectra"]
+            elif "spectrum" in batch:  # legacy key
+                spectra = batch["spectrum"]
+            else:
+                raise KeyError("Batch missing required key 'spectra' (or legacy 'spectrum').")
+
+            if "graph" not in batch:
+                raise KeyError("Batch missing required key 'graph'.")
+
             # Move batch to device
             graph = batch['graph'].to(self.device)
-            spectra = batch['spectra'].to(self.device)
-            labels = batch['labels'].to(self.device)
+            spectra = spectra.to(self.device)
+            labels = labels.to(self.device)
             
             if 'global_features' in batch:
                 global_features = batch['global_features'].to(self.device)
@@ -109,6 +135,9 @@ class Trainer:
             if (batch_idx + 1) % 10 == 0:
                 logger.info(f"Batch {batch_idx + 1}: Loss = {loss.item():.4f}")
         
+        if batch_count == 0:
+            raise ValueError("Training DataLoader produced 0 usable batches.")
+
         avg_loss = total_loss / batch_count
         return {'train_loss': avg_loss}
     
@@ -137,9 +166,33 @@ class Trainer:
         
         with torch.no_grad():
             for batch in val_loader:
+                if batch is None:
+                    continue
+                if not isinstance(batch, dict):
+                    raise TypeError(
+                        f"Expected batch to be a dict, got {type(batch)}. Did you set the correct collate_fn?"
+                    )
+
+                if "labels" in batch:
+                    labels = batch["labels"]
+                elif "label" in batch:  # legacy key
+                    labels = batch["label"]
+                else:
+                    raise KeyError("Batch missing required key 'labels' (or legacy 'label').")
+
+                if "spectra" in batch:
+                    spectra = batch["spectra"]
+                elif "spectrum" in batch:  # legacy key
+                    spectra = batch["spectrum"]
+                else:
+                    raise KeyError("Batch missing required key 'spectra' (or legacy 'spectrum').")
+
+                if "graph" not in batch:
+                    raise KeyError("Batch missing required key 'graph'.")
+
                 graph = batch['graph'].to(self.device)
-                spectra = batch['spectra'].to(self.device)
-                labels = batch['labels'].to(self.device)
+                spectra = spectra.to(self.device)
+                labels = labels.to(self.device)
                 
                 if 'global_features' in batch:
                     global_features = batch['global_features'].to(self.device)
@@ -160,9 +213,15 @@ class Trainer:
                 total_loss += loss.item()
                 batch_count += 1
                 
-                all_preds.append(outputs.cpu().numpy())
+                preds_for_metric = outputs
+                if task == 'cafa5':
+                    preds_for_metric = torch.sigmoid(outputs)
+                all_preds.append(preds_for_metric.cpu().numpy())
                 all_labels.append(labels.cpu().numpy())
-        
+
+        if batch_count == 0:
+            raise ValueError("Validation DataLoader produced 0 usable batches.")
+
         avg_loss = total_loss / batch_count
         
         # Compute additional metrics if provided
@@ -325,6 +384,13 @@ class MetricComputer:
             max_f = max(max_f, mean_f)
         
         return max_f
+
+    @staticmethod
+    def f_max_score(predictions: np.ndarray,
+                    targets: np.ndarray,
+                    threshold_range: np.ndarray = None) -> float:
+        """Backward-compatible alias for :meth:`f_max`."""
+        return MetricComputer.f_max(predictions, targets, threshold_range=threshold_range)
     
     @staticmethod
     def mean_squared_error(predictions: np.ndarray,

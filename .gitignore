@@ -1,4 +1,5 @@
 # Data files
+data/
 data/pdb/*.pdb
 data/pdb/*.mmcif
 data/kaggle/*.csv
@@ -11,6 +12,8 @@ data/processed/*.npz
 # Model checkpoints
 models/checkpoints/*.pt
 models/logs/
+checkpoints/
+_tmp_checkpoints/
 
 # Python
 __pycache__/

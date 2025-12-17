@@ -80,12 +80,11 @@ class VibroStructuralFusion(nn.Module):
             k = self.k_proj(spectral_emb)    # (B, latent_dim)
             v = self.v_proj(spectral_emb)    # (B, latent_dim)
             
-            # Attention weights: dot product scaled
-            attn = (q * k).sum(dim=-1, keepdim=True) * self.scale  # (B, 1)
-            attn = F.softmax(attn, dim=-1)
+            # Scalar gating between modalities (0..1)
+            gate = torch.sigmoid((q * k).sum(dim=-1, keepdim=True) * self.scale)  # (B, 1)
             
             # Weighted sum of value with structural embedding
-            fused = attn * v + (1 - attn) * structural_emb  # (B, latent_dim)
+            fused = gate * v + (1 - gate) * structural_emb  # (B, latent_dim)
         
         return self.dropout(fused)
 
@@ -125,9 +124,15 @@ class VibroStructuralModel(nn.Module):
         self.gnn_input_dim = gnn_input_dim
         self.num_go_terms = num_go_terms
         
-        # Import models here to avoid circular dependencies
-        from .gnn import ProteinGNN
-        from .cnn import SpectralCNN
+        # Import models here to avoid circular dependencies.
+        # Support both package execution (`python -m src.models.multimodal`)
+        # and direct script execution (`python src/models/multimodal.py`).
+        try:
+            from .gnn import ProteinGNN
+            from .cnn import SpectralCNN
+        except ImportError:  # pragma: no cover
+            from src.models.gnn import ProteinGNN
+            from src.models.cnn import SpectralCNN
         
         # Encoders
         self.gnn_encoder = ProteinGNN(input_dim=gnn_input_dim, 
@@ -310,15 +315,18 @@ def main():
     # Create dummy inputs
     batch_size = 8
     
-    # Dummy graph data
-    from torch_geometric.data import Data
-    from .gnn import GraphConstruction
+    from torch_geometric.data import Batch
+    from src.models.gnn import GraphConstruction
     
     num_residues = 100
     ca_coords = torch.randn(num_residues, 3) * 10
     ca_features = torch.randn(num_residues, 24)
-    graph_data = GraphConstruction.construct_ca_graph(ca_coords, ca_features)
-    graph_data.batch = torch.zeros(num_residues, dtype=torch.long)
+    
+    graphs = [
+        GraphConstruction.construct_ca_graph(ca_coords.clone(), ca_features.clone())
+        for _ in range(batch_size)
+    ]
+    graph_data = Batch.from_data_list(graphs)
     
     # Dummy spectra
     spectra = torch.randn(batch_size, 1, 1000)
@@ -349,5 +357,11 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    # Allow running as a script: `python src/models/multimodal.py`
+    import os
+    import sys
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if repo_root not in sys.path:
+        sys.path.insert(0, repo_root)
     import torch
     main()

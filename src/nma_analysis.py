@@ -15,7 +15,14 @@ from scipy import sparse
 from scipy.sparse.linalg import eigsh
 from pathlib import Path
 
-import prody as pr
+def _require_prody():
+    try:
+        import prody as pr  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "ProDy is required for Normal Mode Analysis (NMA). Install it with `pip install prody`."
+        ) from exc
+    return pr
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,6 +53,8 @@ class ANMAnalyzer:
             cutoff: Distance cutoff for C-alpha connections (Angstroms)
             distance_weighted: Use distance-dependent force constants
         """
+        pr = _require_prody()
+
         self.cutoff = cutoff
         self.distance_weighted = distance_weighted
         
@@ -89,28 +98,51 @@ class ANMAnalyzer:
             - eigenvectors: Shape (3*n_atoms, k), columns are mode vectors
         """
         logger.info(f"Computing first {k} normal modes...")
-        
-        # Diagonalize Hessian to get eigenvalues/eigenvectors
-        # Skip first 6 rigid body modes
-        self._eigenvalues, self._eigenvectors = self.anm.getEigvals(), self.anm.getEigvecs()
-        
-        # Select non-zero modes (skip first 6 for translational/rotational freedom)
-        # and take the lowest k frequencies
+
+        # ProDy requires an explicit mode calculation step after building the Hessian.
+        # ANM has 6 rigid-body modes; request a few extra to ensure we can return k non-zero modes.
         n_skip = 6
-        eigenvalues_nonzero = self._eigenvalues[n_skip:n_skip + k]
-        eigenvectors_selected = self._eigenvectors[:, n_skip:n_skip + k]
-        
-        # Convert eigenvalues (omega^2) to frequencies in cm^-1
-        # Physical constant conversion: hbar = 1055.06 cm^-1 fs
-        # Frequency [cm^-1] = sqrt(eigenvalue [1/fs^2]) / (2*pi*c)
-        # For ProDy: eigenvalue -> frequency via sqrt(lambda) * conversion_factor
+        n_total = min(3 * self.n_atoms, n_skip + int(k))
+        if n_total <= 0:
+            raise ValueError("Cannot compute modes for an empty structure.")
+
+        try:
+            self.anm.calcModes(n_total)
+        except Exception as exc:
+            raise RuntimeError("ProDy failed to calculate ANM modes.") from exc
+
+        eigvals = self.anm.getEigvals()
+        eigvecs = self.anm.getEigvecs()
+        if eigvals is None or eigvecs is None:
+            raise RuntimeError("ProDy returned no eigenvalues/eigenvectors. Did mode calculation succeed?")
+
+        eigvals = np.asarray(eigvals)
+        eigvecs = np.asarray(eigvecs)
+
+        # Filter rigid-body/near-zero modes robustly (can be >6 if graph is disconnected).
+        zero_tol = 1e-8
+        nonzero_idx = np.where(eigvals > zero_tol)[0]
+        if nonzero_idx.size == 0:
+            raise RuntimeError("All ANM eigenvalues are (near-)zero; cannot compute vibrational modes.")
+
+        # Ensure lowest modes first.
+        nonzero_idx = nonzero_idx[np.argsort(eigvals[nonzero_idx])]
+        selected_idx = nonzero_idx[: min(k, nonzero_idx.size)]
+
+        self._eigenvalues = eigvals[selected_idx]
+        self._eigenvectors = eigvecs[:, selected_idx]
+
+        # Convert eigenvalues (omega^2) to frequencies in cm^-1.
         conversion_factor = 1 / (2 * np.pi * 29979.2458)  # 1/c in fs/cm
-        frequencies = np.sqrt(np.maximum(eigenvalues_nonzero, 0)) * conversion_factor
-        
+        frequencies = np.sqrt(np.maximum(self._eigenvalues, 0)) * conversion_factor
+
         self._frequencies = frequencies
-        logger.info(f"Mode frequencies range: {frequencies.min():.2f} - {frequencies.max():.2f} cm^-1")
-        
-        return frequencies, eigenvectors_selected
+        if frequencies.size:
+            logger.info(
+                f"Mode frequencies range: {frequencies.min():.2f} - {frequencies.max():.2f} cm^-1"
+            )
+
+        return frequencies, self._eigenvectors
     
     def compute_vdos(self, k: int = 100, broadening: float = 5.0) -> np.ndarray:
         """
@@ -211,14 +243,14 @@ class ANMAnalyzer:
         Returns:
             Collectivity score (0-1)
         """
-        if self._eigenvectors is None:
+        if self._eigenvectors is None or self._eigenvectors.shape[1] <= mode_idx:
             self.compute_modes(k=mode_idx + 1)
         
         # Get eigenvector for this mode
         mode_vector = self._eigenvectors[:, mode_idx]
         
         # Reshape to (n_atoms, 3) and compute participation per atom
-        mode_matrix = mode_vector.reshape(-1, 3)  # (n_atoms, 3)
+        mode_matrix = mode_vector.reshape(self.n_atoms, 3)  # (n_atoms, 3)
         participation = np.sum(mode_matrix**2, axis=1)  # (n_atoms,)
         participation = participation / np.sum(participation)  # normalize
         
@@ -240,13 +272,13 @@ class ANMAnalyzer:
         Returns:
             Fluctuations: Shape (n_atoms,), in Angstroms^2
         """
-        if self._eigenvectors is None:
+        if self._eigenvectors is None or self._eigenvalues is None or self._eigenvectors.shape[1] < k:
             self.compute_modes(k=k)
         
         # Mean-square fluctuation from mode decomposition
         # <u^2> = sum_i |v_i|^2 / lambda_i (in harmonic approximation)
-        mode_matrix = self._eigenvectors[:, :k].reshape(-1, 3, k)  # (n_atoms, 3, k)
-        mode_energies = self._eigenvalues[6:6+k]  # skip rigid modes
+        mode_matrix = self._eigenvectors[:, :k].reshape(self.n_atoms, 3, k)  # (n_atoms, 3, k)
+        mode_energies = self._eigenvalues[:k]
         
         # Avoid division by zero
         mode_energies = np.maximum(mode_energies, 1e-6)
@@ -267,6 +299,8 @@ class GNMAnalyzer:
     
     def __init__(self, structure, cutoff: float = 10.0):
         """Initialize GNM analyzer."""
+        pr = _require_prody()
+
         self.cutoff = cutoff
         
         if isinstance(structure, str):
@@ -286,13 +320,30 @@ class GNMAnalyzer:
     def compute_modes(self, k: int = 20) -> Tuple[np.ndarray, np.ndarray]:
         """Compute GNM modes."""
         logger.info(f"Computing first {k} GNM modes...")
-        eigenvalues, eigenvectors = self.gnm.getEigvals(), self.gnm.getEigvecs()
-        
-        # For GNM, eigenvalues are directly mode participation
-        # Sort and take first k non-zero modes
-        idx = np.argsort(eigenvalues)[:k]
-        
-        return eigenvalues[idx], eigenvectors[:, idx]
+        n_skip = 1  # GNM has a single rigid-body mode
+        n_total = min(self.n_atoms, n_skip + int(k))
+        if n_total <= 0:
+            raise ValueError("Cannot compute modes for an empty structure.")
+
+        try:
+            self.gnm.calcModes(n_total)
+        except Exception as exc:
+            raise RuntimeError("ProDy failed to calculate GNM modes.") from exc
+
+        eigenvalues = self.gnm.getEigvals()
+        eigenvectors = self.gnm.getEigvecs()
+        if eigenvalues is None or eigenvectors is None:
+            raise RuntimeError("ProDy returned no eigenvalues/eigenvectors for GNM.")
+
+        eigenvalues = np.asarray(eigenvalues)
+        eigenvectors = np.asarray(eigenvectors)
+
+        zero_tol = 1e-8
+        nonzero_idx = np.where(eigenvalues > zero_tol)[0]
+        nonzero_idx = nonzero_idx[np.argsort(eigenvalues[nonzero_idx])]
+        selected_idx = nonzero_idx[: min(k, nonzero_idx.size)]
+
+        return eigenvalues[selected_idx], eigenvectors[:, selected_idx]
 
 
 def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
@@ -343,13 +394,23 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
 
 def main():
     """Demonstration of NMA analysis."""
+    try:
+        pr = _require_prody()
+    except ImportError as exc:
+        logger.error(str(exc))
+        return
+
     logger.info("=" * 60)
     logger.info("Quantum Data Decoder: NMA Analysis Module")
     logger.info("=" * 60)
     
     # Download Ubiquitin structure for testing
     logger.info("\nDownloading Ubiquitin (1UBQ) for testing...")
-    pr.fetchPDB('1UBQ', folder='./data/pdb')
+    try:
+        pr.fetchPDB('1UBQ', folder='./data/pdb')
+    except Exception as exc:
+        logger.error(f"Failed to fetch PDB 1UBQ (offline or network issue?): {exc}")
+        return
     pdb_path = './data/pdb/1ubq.pdb'
     
     # Run ANM analysis

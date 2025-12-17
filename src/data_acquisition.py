@@ -7,9 +7,10 @@ Handles fetching, filtering, and organizing:
 - Experimental spectral databases (RamanBioLib, Sadtler, RRUFF)
 """
 
-import os
 import json
 import logging
+import os
+import subprocess
 from pathlib import Path
 from typing import List, Tuple, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -170,10 +171,14 @@ class KaggleDataAcquisition:
         """
         competition_name = "novozymes-enzyme-stability-prediction"
         logger.info(f"Downloading {competition_name} data...")
-        
+
         try:
-            os.system(f"kaggle competitions download -c {competition_name} "
-                     f"-p {self.output_dir}")
+            # Use subprocess.run instead of os.system to avoid command injection
+            subprocess.run(
+                ["kaggle", "competitions", "download", "-c", competition_name,
+                 "-p", str(self.output_dir)],
+                check=True
+            )
             
             # Extract if needed
             import zipfile
@@ -204,10 +209,14 @@ class KaggleDataAcquisition:
         """
         competition_name = "cafa-5-protein-function-prediction"
         logger.info(f"Downloading {competition_name} data...")
-        
+
         try:
-            os.system(f"kaggle competitions download -c {competition_name} "
-                     f"-p {self.output_dir}")
+            # Use subprocess.run instead of os.system to avoid command injection
+            subprocess.run(
+                ["kaggle", "competitions", "download", "-c", competition_name,
+                 "-p", str(self.output_dir)],
+                check=True
+            )
             
             # Extract if needed
             import zipfile
@@ -297,9 +306,13 @@ class SpectralDatabaseAcquisition:
             # Clone or download repository
             repo_url = "https://github.com/raman-biophysics/raman-biolib.git"
             repo_path = self.output_dir / "ramanbiolib"
-            
+
             if not repo_path.exists():
-                os.system(f"git clone {repo_url} {repo_path}")
+                # Use subprocess.run instead of os.system to avoid command injection
+                subprocess.run(
+                    ["git", "clone", repo_url, str(repo_path)],
+                    check=True
+                )
             
             logger.info(f"RamanBioLib data stored at {repo_path}")
             return str(repo_path)

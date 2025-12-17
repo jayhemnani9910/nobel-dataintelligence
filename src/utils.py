@@ -180,7 +180,7 @@ def normalize_spectrum(spectrum: np.ndarray, method: str = 'max') -> np.ndarray:
         Normalized spectrum
     """
     if method == 'max':
-        max_val = np.max(spectrum)
+        max_val = np.max(np.abs(spectrum))
         return spectrum / max_val if max_val > 0 else spectrum
     
     elif method == 'l2':
@@ -206,39 +206,63 @@ def batch_collate_function(batch):
     
     Handles PyG Data objects + spectra + auxiliary features.
     """
-    from torch_geometric.data import Batch
-    
-    graphs = []
-    spectra = []
-    global_features = []
-    labels = []
-    
+    try:
+        from torch_geometric.data import Batch  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "torch_geometric is required to collate graph batches. "
+            "Install it (and its compiled dependencies) to use graph-based training."
+        ) from exc
+
+    batch = [item for item in batch if item is not None]
+    if not batch:
+        raise ValueError("All items in this batch were None/invalid; cannot collate.")
+
+    graphs = [item["graph"] for item in batch]
+    spectra_list = []
+    global_features_list = []
+    labels_list = []
+
+    any_global = any("global_features" in item for item in batch)
+    any_labels = any(("labels" in item) or ("label" in item) for item in batch)
+
     for item in batch:
-        graphs.append(item['graph'])
-        spectra.append(item['spectrum'])
-        if 'global_features' in item:
-            global_features.append(item['global_features'])
-        if 'label' in item:
-            labels.append(item['label'])
-    
-    # Batch graphs
+        if "spectra" in item:
+            spectra = item["spectra"]
+        elif "spectrum" in item:  # legacy key
+            spectra = item["spectrum"]
+        else:
+            raise KeyError("Batch item missing required key 'spectra' (or legacy 'spectrum').")
+
+        if not isinstance(spectra, torch.Tensor):
+            spectra = torch.as_tensor(spectra)
+        spectra_list.append(spectra)
+
+        if any_global:
+            if "global_features" not in item:
+                raise KeyError("Inconsistent batch: some items have 'global_features' but others do not.")
+            gf = item["global_features"]
+            if not isinstance(gf, torch.Tensor):
+                gf = torch.as_tensor(gf)
+            global_features_list.append(gf)
+
+        if any_labels:
+            if ("labels" not in item) and ("label" not in item):
+                raise KeyError("Inconsistent batch: some items have labels but others do not.")
+            lbl = item.get("labels", item.get("label"))
+            if not isinstance(lbl, torch.Tensor):
+                lbl = torch.as_tensor(lbl)
+            labels_list.append(lbl)
+
     batch_graph = Batch.from_data_list(graphs)
-    
-    # Stack spectra
-    batch_spectra = torch.stack(spectra)
-    
-    # Stack other tensors
-    result = {
-        'graph': batch_graph,
-        'spectra': batch_spectra,
-    }
-    
-    if global_features:
-        result['global_features'] = torch.stack(global_features)
-    
-    if labels:
-        result['labels'] = torch.stack(labels)
-    
+    batch_spectra = torch.stack(spectra_list)
+
+    result = {"graph": batch_graph, "spectra": batch_spectra}
+    if any_global:
+        result["global_features"] = torch.stack(global_features_list)
+    if any_labels:
+        result["labels"] = torch.stack(labels_list)
+
     return result
 
 

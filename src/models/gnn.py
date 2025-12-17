@@ -9,8 +9,15 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GATv2Conv, global_mean_pool, global_max_pool
-from torch_geometric.data import Data
+
+try:
+    from torch_geometric.nn import GATv2Conv, global_mean_pool, global_max_pool  # type: ignore
+    from torch_geometric.data import Data  # type: ignore
+except Exception as exc:  # pragma: no cover
+    raise ImportError(
+        "torch_geometric is required for `src.models.gnn`. Install it (and its compiled dependencies) "
+        "to use graph neural network features."
+    ) from exc
 
 logger = logging.getLogger(__name__)
 

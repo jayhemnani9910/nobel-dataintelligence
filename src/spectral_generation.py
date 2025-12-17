@@ -8,10 +8,8 @@ and provides utilities for spectral processing and feature extraction.
 import logging
 from typing import Tuple, Optional
 import numpy as np
-from scipy.signal import convolve
+from scipy.signal import convolve, find_peaks
 from pathlib import Path
-
-import prody as pr
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +61,8 @@ class SpectralGenerator:
         if intensity_weighting is None:
             intensity_weighting = np.ones_like(frequencies)
         else:
-            intensity_weighting = intensity_weighting / np.max(intensity_weighting)
+            max_w = np.max(intensity_weighting)
+            intensity_weighting = intensity_weighting / max_w if max_w > 0 else np.ones_like(frequencies)
         
         # Add Lorentzian peak for each mode
         gamma = broadening
@@ -143,8 +142,15 @@ class SpectralGenerator:
         Returns:
             Convolved spectrum
         """
+        if fwhm <= 0:
+            denom = np.max(np.abs(spectrum))
+            return spectrum / denom if denom > 0 else spectrum
+
         # Convert FWHM to sigma for Gaussian
         sigma_pix = fwhm / (self.freq_max - self.freq_min) * self.n_points
+        if sigma_pix <= 0:
+            denom = np.max(np.abs(spectrum))
+            return spectrum / denom if denom > 0 else spectrum
         
         # Gaussian kernel
         kernel_size = int(4 * sigma_pix)
@@ -170,26 +176,45 @@ class SpectralGenerator:
         Returns:
             Dictionary of scalar features
         """
+        spectrum = np.asarray(spectrum)
+        total_intensity = float(np.sum(spectrum))
+        if not np.isfinite(total_intensity) or total_intensity == 0.0:
+            return {
+                "integral": 0.0,
+                "peak_height": 0.0,
+                "peak_frequency": 0.0,
+                "centroid": 0.0,
+                "std_dev": 0.0,
+                "skewness": 0.0,
+                "kurtosis": 0.0,
+                "num_peaks": 0,
+            }
+
         features = {
-            'integral': np.sum(spectrum),  # Total intensity
-            'peak_height': np.max(spectrum),  # Highest peak
-            'peak_frequency': self.freq_axis[np.argmax(spectrum)],  # Frequency of highest peak
-            'centroid': np.sum(self.freq_axis * spectrum) / np.sum(spectrum),  # Centroid
-            'std_dev': np.sqrt(np.sum((self.freq_axis - np.mean(self.freq_axis))**2 * spectrum) / np.sum(spectrum)),
-            'skewness': self._compute_skewness(spectrum),
-            'kurtosis': self._compute_kurtosis(spectrum),
+            'integral': total_intensity,  # Total intensity
+            'peak_height': float(np.max(spectrum)),  # Highest peak
+            'peak_frequency': float(self.freq_axis[int(np.argmax(spectrum))]),  # Frequency of highest peak
+            'centroid': float(np.sum(self.freq_axis * spectrum) / total_intensity),  # Centroid
+            'std_dev': float(
+                np.sqrt(np.sum(((self.freq_axis - np.mean(self.freq_axis))**2) * spectrum) / total_intensity)
+            ),
+            'skewness': float(self._compute_skewness(spectrum)),
+            'kurtosis': float(self._compute_kurtosis(spectrum)),
         }
         
-        # Find peaks above 10% of maximum
-        threshold = 0.1 * np.max(spectrum)
-        peaks = np.where(spectrum > threshold)[0]
-        features['num_peaks'] = len(np.diff(peaks))
+        # Count local maxima above 10% of the global maximum.
+        threshold = 0.1 * float(np.max(spectrum))
+        peaks, props = find_peaks(spectrum, height=threshold)
+        features['num_peaks'] = int(len(peaks))
         
         return features
     
     def _compute_skewness(self, spectrum: np.ndarray) -> float:
         """Compute spectral skewness."""
-        mean = np.sum(self.freq_axis * spectrum) / np.sum(spectrum)
+        denom = np.sum(spectrum)
+        if denom == 0:
+            return 0
+        mean = np.sum(self.freq_axis * spectrum) / denom
         m3 = np.sum(spectrum * (self.freq_axis - mean)**3)
         m2 = np.sum(spectrum * (self.freq_axis - mean)**2)
         skewness = m3 / (m2**1.5) if m2 > 0 else 0
@@ -197,7 +222,10 @@ class SpectralGenerator:
     
     def _compute_kurtosis(self, spectrum: np.ndarray) -> float:
         """Compute spectral kurtosis."""
-        mean = np.sum(self.freq_axis * spectrum) / np.sum(spectrum)
+        denom = np.sum(spectrum)
+        if denom == 0:
+            return 0
+        mean = np.sum(self.freq_axis * spectrum) / denom
         m4 = np.sum(spectrum * (self.freq_axis - mean)**4)
         m2 = np.sum(spectrum * (self.freq_axis - mean)**2)
         kurtosis = m4 / (m2**2) - 3 if m2 > 0 else 0
@@ -216,8 +244,12 @@ class SpectralGenerator:
             Correlation coefficient (-1 to 1)
         """
         # Normalize
-        spec1_norm = spectrum1 / np.linalg.norm(spectrum1)
-        spec2_norm = spectrum2 / np.linalg.norm(spectrum2)
+        denom1 = np.linalg.norm(spectrum1)
+        denom2 = np.linalg.norm(spectrum2)
+        if denom1 == 0 or denom2 == 0:
+            return 0.0
+        spec1_norm = spectrum1 / denom1
+        spec2_norm = spectrum2 / denom2
         
         correlation = np.dot(spec1_norm, spec2_norm)
         return correlation
@@ -279,7 +311,7 @@ class SpectrumNormalizer:
     @staticmethod
     def normalize_max(spectrum: np.ndarray) -> np.ndarray:
         """Max normalization (0 to 1)."""
-        max_val = np.max(spectrum)
+        max_val = np.max(np.abs(spectrum))
         return spectrum / max_val if max_val > 0 else spectrum
     
     @staticmethod

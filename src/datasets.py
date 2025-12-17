@@ -12,9 +12,62 @@ import pandas as pd
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-import prody as pr
 
 logger = logging.getLogger(__name__)
+
+
+def _require_prody():
+    try:
+        import prody as pr  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        raise ImportError(
+            "ProDy is required for protein structure parsing. Install it with `pip install prody`."
+        ) from exc
+    return pr
+
+
+def _get_graph_construction():
+    # Support both package imports (`from src.datasets import ...`)
+    # and notebook-style imports (`sys.path.insert(0, './src'); import datasets`).
+    try:
+        from .models.gnn import GraphConstruction
+    except Exception:  # pragma: no cover
+        from models.gnn import GraphConstruction  # type: ignore
+    return GraphConstruction
+
+
+def _get_batch_collate_function():
+    try:
+        from .utils import batch_collate_function
+    except Exception:  # pragma: no cover
+        from utils import batch_collate_function  # type: ignore
+    return batch_collate_function
+
+
+def _normalize_cafa_terms_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normalize CAFA5 terms dataframe to columns: ['target_id', 'go_id'].
+    Supports multiple common Kaggle/CAFA naming variants.
+    """
+    if {"target_id", "go_id"}.issubset(df.columns):
+        return df[["target_id", "go_id"]].copy()
+    if {"protein_id", "go_term"}.issubset(df.columns):
+        out = df[["protein_id", "go_term"]].rename(columns={"protein_id": "target_id", "go_term": "go_id"})
+        return out
+    if {"protein_id", "go_id"}.issubset(df.columns):
+        out = df[["protein_id", "go_id"]].rename(columns={"protein_id": "target_id"})
+        return out
+    if {"EntryID", "term"}.issubset(df.columns):
+        out = df[["EntryID", "term"]].rename(columns={"EntryID": "target_id", "term": "go_id"})
+        return out
+    if {"entry_id", "term"}.issubset(df.columns):
+        out = df[["entry_id", "term"]].rename(columns={"entry_id": "target_id", "term": "go_id"})
+        return out
+
+    raise ValueError(
+        "Unrecognized CAFA5 terms file format. Expected columns like "
+        "['target_id','go_id'] or ['protein_id','go_term'] or ['EntryID','term']."
+    )
 
 
 class ProteinStructureDataset(Dataset):
@@ -55,6 +108,8 @@ class ProteinStructureDataset(Dataset):
     
     def __getitem__(self, idx: int) -> Dict:
         """Load a single sample."""
+        pr = _require_prody()
+
         pdb_file = self.pdb_files[idx]
         pdb_id = Path(pdb_file).stem.lower()
         
@@ -89,7 +144,7 @@ class ProteinStructureDataset(Dataset):
                     ], dtype=np.float32)
         
         # Construct graph (if not precomputed)
-        from .models.gnn import GraphConstruction
+        GraphConstruction = _get_graph_construction()
         
         ca = structure.select('ca')
         if ca is None:
@@ -155,8 +210,18 @@ class NovozymesDataset(Dataset):
                     self.df.loc[mask] = row
         
         # Load structure
-        self.structure = pr.parsePDB(structure_file)
+        self.structure = None
+        self._wt_ca_coords = None
+        try:
+            pr = _require_prody()
+            self.structure = pr.parsePDB(structure_file)
+            ca = self.structure.select("ca") if self.structure is not None else None
+            if ca is not None:
+                self._wt_ca_coords = torch.tensor(ca.getCoords(), dtype=torch.float32)
+        except Exception as exc:
+            logger.warning(f"Failed to parse Novozymes wildtype structure '{structure_file}': {exc}")
         self.spectra_dir = Path(spectra_dir)
+        self._wt_spectrum_cache = None
         
         logger.info(f"Novozymes dataset: {len(self.df)} mutations")
     
@@ -170,22 +235,33 @@ class NovozymesDataset(Dataset):
         # Extract info
         seq_id = row['seq_id']
         sequence = row['protein_sequence']
-        tm = float(row['tm'])
+        tm = float(row['tm']) if 'tm' in row and not pd.isna(row['tm']) else None
         pH = float(row['pH'])
         
         # Get wildtype spectrum (or compute delta)
-        wt_spectrum_file = self.spectra_dir / 'wt_spectrum.npy'
-        if wt_spectrum_file.exists():
-            spectrum = np.load(wt_spectrum_file)
-        else:
-            spectrum = np.zeros(1000)
+        if self._wt_spectrum_cache is None:
+            wt_spectrum_file = self.spectra_dir / 'wt_spectrum.npy'
+            if wt_spectrum_file.exists():
+                self._wt_spectrum_cache = np.load(wt_spectrum_file)
+            else:
+                self._wt_spectrum_cache = np.zeros(1000)
+        spectrum = self._wt_spectrum_cache
         
         # Construct graph from sequence
-        from .models.gnn import GraphConstruction
+        GraphConstruction = _get_graph_construction()
         
         features = GraphConstruction.construct_residue_features(sequence)
-        # Use dummy coordinates (or load from structure if available)
-        coords = torch.randn(len(sequence), 3) * 10
+        # Use wildtype coordinates when compatible; otherwise fall back to deterministic pseudo-coordinates.
+        if self._wt_ca_coords is not None and len(sequence) == self._wt_ca_coords.size(0):
+            coords = self._wt_ca_coords
+        else:
+            # Deterministic coordinates based on index to avoid randomness in data loading.
+            coords = torch.stack(
+                [torch.arange(len(sequence), dtype=torch.float32),
+                 torch.zeros(len(sequence), dtype=torch.float32),
+                 torch.zeros(len(sequence), dtype=torch.float32)],
+                dim=1
+            )
         
         graph = GraphConstruction.construct_ca_graph(
             coords, features, distance_cutoff=10.0
@@ -198,10 +274,12 @@ class NovozymesDataset(Dataset):
             'seq_id': seq_id,
             'graph': graph,
             'spectra': torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
-            'labels': torch.tensor(tm, dtype=torch.float32),
             'global_features': global_features,
             'sequence': sequence,
         }
+
+        if tm is not None:
+            sample['labels'] = torch.tensor(tm, dtype=torch.float32)
         
         return sample
 
@@ -214,7 +292,7 @@ class CAFA5Dataset(Dataset):
     """
     
     def __init__(self, sequences_fasta: str,
-                 terms_csv: str,
+                 terms_csv: Optional[str],
                  spectra_dir: str,
                  structure_dir: str,
                  go_terms_list: Optional[List[str]] = None):
@@ -233,7 +311,11 @@ class CAFA5Dataset(Dataset):
         self._load_fasta(sequences_fasta)
         
         # Load GO term labels
-        self.terms_df = pd.read_csv(terms_csv)
+        if terms_csv is None:
+            self.terms_df = pd.DataFrame(columns=["target_id", "go_id"])
+        else:
+            raw_terms_df = pd.read_csv(terms_csv)
+            self.terms_df = _normalize_cafa_terms_df(raw_terms_df)
         
         # Load GO terms list
         if go_terms_list is None:
@@ -268,7 +350,7 @@ class CAFA5Dataset(Dataset):
         return len(self.sequences)
     
     def __getitem__(self, idx: int) -> Dict:
-        """Load protein and GO term labels."""
+        """Load protein (and optionally GO term labels)."""
         protein_id = list(self.sequences.keys())[idx]
         sequence = self.sequences[protein_id]
         
@@ -280,29 +362,38 @@ class CAFA5Dataset(Dataset):
             spectrum = np.zeros(1000)
         
         # Construct graph
-        from .models.gnn import GraphConstruction
+        GraphConstruction = _get_graph_construction()
         
         features = GraphConstruction.construct_residue_features(sequence)
-        coords = torch.randn(len(sequence), 3) * 10  # Dummy coords
+        # Deterministic pseudo-coordinates (fallback when no structure is available).
+        coords = torch.stack(
+            [
+                torch.arange(len(sequence), dtype=torch.float32),
+                torch.zeros(len(sequence), dtype=torch.float32),
+                torch.zeros(len(sequence), dtype=torch.float32),
+            ],
+            dim=1,
+        )
         
         graph = GraphConstruction.construct_ca_graph(
             coords, features, distance_cutoff=10.0
         )
         
-        # Get GO labels
-        go_labels = self.terms_df[self.terms_df['target_id'] == protein_id]['go_id'].values
-        label_vector = np.zeros(len(self.go_terms), dtype=np.float32)
-        for go in go_labels:
-            if go in self.go_to_idx:
-                label_vector[self.go_to_idx[go]] = 1.0
-        
         sample = {
             'protein_id': protein_id,
             'graph': graph,
             'spectra': torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
-            'labels': torch.tensor(label_vector, dtype=torch.float32),
             'sequence': sequence,
         }
+
+        # Add labels only when a terms file was provided.
+        if not self.terms_df.empty:
+            go_labels = self.terms_df[self.terms_df['target_id'] == protein_id]['go_id'].values
+            label_vector = np.zeros(len(self.go_terms), dtype=np.float32)
+            for go in go_labels:
+                if go in self.go_to_idx:
+                    label_vector[self.go_to_idx[go]] = 1.0
+            sample['labels'] = torch.tensor(label_vector, dtype=torch.float32)
         
         return sample
 
@@ -327,7 +418,7 @@ def create_dataloaders(train_dataset: Dataset,
     Returns:
         Tuple of (train_loader, val_loader, test_loader)
     """
-    from .utils import batch_collate_function
+    batch_collate_function = _get_batch_collate_function()
     
     train_loader = DataLoader(
         train_dataset,
