@@ -1,6 +1,6 @@
 # Data files
-data/
-data/pdb/*.pdb
+/data/
+/data/pdb/*.pdb
 data/pdb/*.mmcif
 data/kaggle/*.csv
 data/kaggle/*.zip
