@@ -87,6 +87,25 @@ vdos = anm.compute_vdos(k=100, broadening=5.0)
 entropy = anm.compute_vibrational_entropy(k=100, temperature=298.15)
 ```
 
+### Inference (with trained checkpoint)
+
+```bash
+# Predict enzyme stability
+python -m src.cli predict-stability --sequence "ACDEFGHIKLMNPQRSTVWY" --pH 7.0
+
+# Predict catalytic turnover
+python -m src.cli predict-kcat --sequence "MKTIIALSYIF..." --smiles "CC(=O)O"
+```
+
+### Train on Google Colab
+
+Open the ready-to-run notebooks on Colab Pro (A100):
+
+| Notebook | What it trains | Time |
+|----------|---------------|------|
+| [`colab/train_novozymes.ipynb`](colab/train_novozymes.ipynb) | VibroStructuralModel on Novozymes (4k mutations) | ~15 min |
+| [`colab/train_vibropredict.ipynb`](colab/train_vibropredict.ipynb) | VibroPredictHybrid with ProtT5 + ChemBERTa | ~30 min |
+
 ### CLI pipelines
 
 ```bash

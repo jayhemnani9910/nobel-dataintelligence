@@ -197,6 +197,44 @@ def run_cafa5(
     logger.info(f"Wrote CAFA5 predictions: {out_path}")
 
 
+def run_predict_stability(
+    sequence: str,
+    pH: float,
+    checkpoint: Path,
+    device: str | None,
+) -> None:
+    from .inference import predict_stability
+
+    resolved_device = device or "cpu"
+    result = predict_stability(
+        sequence=sequence, pH=pH,
+        checkpoint_path=str(checkpoint), device=resolved_device,
+    )
+    print(f"Predicted Tm: {result['predicted_tm']} °C")
+    print(f"Sequence length: {result['sequence_length']}")
+
+
+def run_predict_kcat(
+    sequence: str,
+    smiles: str,
+    product_smiles: str | None,
+    checkpoint: Path,
+    device: str | None,
+) -> None:
+    from .inference import predict_kcat
+
+    resolved_device = device or "cpu"
+    result = predict_kcat(
+        sequence=sequence, substrate_smiles=smiles,
+        product_smiles=product_smiles,
+        checkpoint_path=str(checkpoint), device=resolved_device,
+    )
+    print(f"Predicted log10(k_cat): {result['predicted_log_kcat']}")
+    print(f"Predicted k_cat: {result['predicted_kcat']} s⁻¹")
+    gw = result['gate_weights']
+    print(f"Attention gates: seq={gw['sequence']} spec={gw['spectral']} chem={gw['chemical']}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="qdd", description="Quantum Data Decoder pipelines")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -213,6 +251,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_cafa.add_argument("--data-dir", type=Path, default=Path("./data/cafa5"))
     p_cafa.add_argument("--out", type=Path, default=Path("./submissions/cafa5_predictions.csv"))
     p_cafa.add_argument("--top-k-terms", type=int, default=25)
+
+    # Inference commands
+    p_ps = sub.add_parser("predict-stability", help="Predict Tm for a protein sequence")
+    p_ps.add_argument("--sequence", type=str, required=True, help="Amino acid sequence")
+    p_ps.add_argument("--pH", type=float, default=7.0)
+    p_ps.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/novozymes_best.pt"))
+    p_ps.add_argument("--device", type=str, default=None)
+
+    p_pk = sub.add_parser("predict-kcat", help="Predict k_cat for an enzyme-substrate pair")
+    p_pk.add_argument("--sequence", type=str, required=True, help="Amino acid sequence")
+    p_pk.add_argument("--smiles", type=str, required=True, help="Substrate SMILES")
+    p_pk.add_argument("--product-smiles", type=str, default=None, help="Product SMILES (optional)")
+    p_pk.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/vibropredict_best.pt"))
+    p_pk.add_argument("--device", type=str, default=None)
 
     return p
 
@@ -235,6 +287,21 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "cafa5":
         run_cafa5(data_dir=args.data_dir, out_path=args.out, top_k_terms=args.top_k_terms)
+        return 0
+
+    if args.cmd == "predict-stability":
+        run_predict_stability(
+            sequence=args.sequence, pH=args.pH,
+            checkpoint=args.checkpoint, device=args.device,
+        )
+        return 0
+
+    if args.cmd == "predict-kcat":
+        run_predict_kcat(
+            sequence=args.sequence, smiles=args.smiles,
+            product_smiles=args.product_smiles,
+            checkpoint=args.checkpoint, device=args.device,
+        )
         return 0
 
     raise AssertionError("Unhandled command")
