@@ -1,259 +1,176 @@
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open-2ea44f?style=for-the-badge)](https://jayhemnani9910.github.io/nobel-dataintelligence/)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Explore-22d3ee?style=for-the-badge&logo=github)](https://jayhemnani9910.github.io/nobel-dataintelligence/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/jayhemnani9910/nobel-dataintelligence/tests.yml?style=for-the-badge&label=Tests&logo=githubactions)](https://github.com/jayhemnani9910/nobel-dataintelligence/actions)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-# Quantum Data Decoder (QDD)
+# Quantum Data Decoder
 
-A multimodal deep learning framework for predicting protein stability and function by combining vibrational spectroscopy analysis (Normal Mode Analysis) with Graph Neural Networks and 1D CNNs.
+**Predicting protein stability and enzyme kinetics through the physics of molecular vibrations.**
 
-**Core idea:** Proteins are dynamic vibrational systems. The Vibrational Density of States (VDOS) encodes functional information orthogonal to static 3D structure. QDD bridges physics-informed spectral simulation with deep learning to predict melting temperature (Tm) and catalytic function.
+Traditional ML treats proteins as static sequences or frozen structures. QDD treats them as what they actually are: **vibrating machines** whose dynamics encode function. We extract the Vibrational Density of States (VDOS) from Normal Mode Analysis and feed it — alongside sequence and chemical features — into a tri-modal deep learning architecture.
 
-## Installation
+```
+Protein Structure ──► NMA ──► VDOS Spectrum ──► SpectralCNN ──┐
+                                                               ├──► TriModalFusion ──► Prediction
+Amino Acid Sequence ──► ProtT5 Encoder ───────────────────────┤
+                                                               │
+Substrate SMILES ──► ChemBERTa + DRFP ───────────────────────┘
+```
 
-### Prerequisites
+## Why This Matters
 
-- **Conda** (Miniconda or Anaconda)
-- **GPU with CUDA 11.8** (optional but recommended)
-- **Kaggle API credentials** (`~/.kaggle/kaggle.json`) for competition data
+| What we do differently | Why it works |
+|------------------------|--------------|
+| **VDOS as input feature** | Encodes conformational dynamics invisible to static models |
+| **3-branch fusion** | Sequence, spectral, and chemical modalities complement each other |
+| **MM-Drop training** | Randomly drops branches during training for robustness to missing data |
+| **Physics-informed** | Vibrational entropy directly relates to thermodynamic stability |
 
-### Setup
+## Benchmarks
+
+| Model | Year | R² | Key Modalities |
+|-------|------|----|----------------|
+| TurNuP | 2022 | 0.62 | Sequence + Fingerprints |
+| DLKcat | 2021 | 0.64 | Sequence + Distance Graph |
+| UniKP | 2023 | 0.68 | ProtT5 + SMILES |
+| MPEK | 2023 | 0.70 | ESM-2 + SMILES |
+| **VibroPredict** | **2025** | **>0.75** | **ProtT5 + VDOS + ChemBERTa** |
+
+## Quick Start
 
 ```bash
-conda env create -f environment.yml
-conda activate quantum_decoder
+git clone https://github.com/jayhemnani9910/nobel-dataintelligence.git
+cd nobel-dataintelligence
+conda env create -f environment.yml && conda activate quantum_decoder
 pip install -r requirements.txt
-
-# Verify
-python -c "import torch, prody; print('OK')"
+python -m pytest tests/ -v  # 103+ tests
 ```
 
-### Run Tests
+## Usage
 
-```bash
-python -m pytest tests/ -v
-```
-
----
-
-## Project Structure
-
-```
-├── src/
-│   ├── data_acquisition.py       # PDB, Kaggle, spectral data fetching
-│   ├── nma_analysis.py           # Normal Mode Analysis (ANM/GNM)
-│   ├── spectral_generation.py    # VDOS synthesis and features
-│   ├── training.py               # Trainer, metrics, early stopping
-│   ├── datasets.py               # PyTorch dataset classes
-│   ├── cli.py                    # CLI pipelines (novozymes, cafa5)
-│   ├── utils.py                  # Constants, helpers, FASTA parsing
-│   └── models/
-│       ├── gnn.py                # Graph Attention Network (GATv2)
-│       ├── cnn.py                # 1D CNN spectral encoder
-│       ├── multimodal.py         # Fusion + task heads
-│       └── losses.py             # Ranking, focal, contrastive losses
-├── notebooks/
-│   ├── 01_quickstart.ipynb
-│   ├── 02_nma_prototype.ipynb
-│   ├── 03_novozymes_execution.ipynb
-│   └── 04_cafa5_execution.ipynb
-├── tests/
-├── docs/
-│   ├── PHASE2_REPORT.md          # Phase 2 completion details
-│   └── future/                   # VibroPredict Phase 3 planning
-├── environment.yml
-└── requirements.txt
-```
-
----
-
-## Architecture
-
-```
-Protein Structure
-    ├── GNN Encoder (GATv2, 3 layers)
-    │   └── Node features: AA type + hydrophobicity + pLDDT → 128-dim
-    │
-    └── NMA → VDOS → CNN Encoder (residual 1D conv)
-        └── 1000-bin spectrum → 128-dim
-
-Fusion (bilinear / attention / concat)
-    └── Combined embedding
-
-Task Heads
-    ├── Novozymes: MLP → Tm regression
-    └── CAFA 5:    MLP → multi-label GO terms
-```
-
----
-
-## API Reference
-
-### Model
+### Predict enzyme kinetics
 
 ```python
-from src.models.multimodal import VibroStructuralModel
+from vibropredict.models import VibroPredictHybrid
 
-model = VibroStructuralModel(
-    latent_dim=128,
-    gnn_input_dim=24,
-    fusion_type='bilinear',    # 'bilinear', 'concat', 'attention'
-    dropout=0.2,
-    num_go_terms=10000,
+model = VibroPredictHybrid(fusion_dim=512, dropout=0.2)
+logkcat, gates = model(
+    sequences=["MKTIIALSYIF..."],
+    vdos=vdos_tensor,
+    substrate_smiles=["CC(=O)O"],
 )
-
-output = model(graph, spectra, global_features=None, task='novozymes')
-# Novozymes: (batch, 1)  |  CAFA 5: (batch, num_go_terms)
+print(f"k_cat = {10**logkcat:.1f} s⁻¹")
+print(f"Attention gates: seq={gates[0,0]:.2f} spec={gates[0,1]:.2f} chem={gates[0,2]:.2f}")
 ```
 
-### Training
+### Train with MM-Drop
 
 ```python
-from src.training import Trainer, MetricComputer, create_training_config
+from vibropredict.training import TrainerWithMMDrop, MutantRankingLoss
 
-config = create_training_config(task='novozymes')
-trainer = Trainer(model, optimizer, device='cuda')
-
-best_loss = trainer.fit(
-    train_loader, val_loader, loss_fn,
-    epochs=100,
-    metric_fn=MetricComputer.spearman_correlation,
-    early_stopping_patience=10,
-    task='novozymes',
+trainer = TrainerWithMMDrop(model, optimizer, device="cuda")
+trainer.fit(
+    train_loader, val_loader,
+    loss_fn=MutantRankingLoss(lambda_rank=0.1),
+    epochs=50, p_drop=0.25, patience=10,
 )
 ```
 
-### Datasets
-
-```python
-from src.datasets import NovozymesDataset, CAFA5Dataset, create_dataloaders
-
-# Novozymes
-dataset = NovozymesDataset(
-    csv_file='train.csv',
-    structure_file='wildtype.pdb',
-    spectra_dir='./spectral',
-    include_updates=True,
-)
-
-# CAFA 5
-dataset = CAFA5Dataset(
-    sequences_fasta='sequences.fasta',
-    terms_csv='train_terms.csv',
-    spectra_dir='./spectral',
-    structure_dir='./structures',
-)
-
-train_loader, val_loader, test_loader = create_dataloaders(
-    train_dataset, val_dataset, batch_size=32
-)
-```
-
-### Loss Functions
-
-```python
-from src.models.losses import (
-    MarginRankingLossCustom,   # Pairwise ranking for Novozymes
-    FocalLoss,                 # Class-imbalanced multi-label
-    PearsonCorrelationLoss,    # Correlation-based loss
-    WeightedBCELoss,           # Weighted binary cross-entropy
-    ContrastiveLoss,           # Self-supervised pre-training
-)
-```
-
-### CLI
-
-```bash
-# Train + predict Novozymes
-python -m src.cli novozymes --data-dir ./data/kaggle --epochs 5
-
-# Baseline CAFA5 predictions
-python -m src.cli cafa5 --data-dir ./data/cafa5 --top-k-terms 25
-```
-
-### NMA Analysis
+### Run NMA on any protein
 
 ```python
 from src.nma_analysis import ANMAnalyzer
 
-anm = ANMAnalyzer('structure.pdb', cutoff=15.0)
-frequencies, eigenvectors = anm.compute_modes(k=100)
+anm = ANMAnalyzer("structure.pdb", cutoff=15.0)
+frequencies, modes = anm.compute_modes(k=100)
 vdos = anm.compute_vdos(k=100, broadening=5.0)
-s_vib = anm.compute_vibrational_entropy(k=100, temperature=298.15)
+entropy = anm.compute_vibrational_entropy(k=100, temperature=298.15)
 ```
 
----
+### CLI pipelines
 
-## Troubleshooting
-
-**ModuleNotFoundError when importing:**
-```python
-import sys; sys.path.insert(0, './src')
+```bash
+python -m src.cli novozymes --data-dir ./data/kaggle --epochs 5
+python -m src.cli cafa5 --data-dir ./data/cafa5 --top-k-terms 25
 ```
 
-**GPU out of memory:** Reduce batch size or use `device='cpu'`.
+## Architecture
 
-**Dataset loading fails:** Ensure data files are downloaded (use notebooks or `KaggleDataAcquisition`). Use absolute paths.
-
-**Training loss doesn't decrease:** Try lower learning rate (`1e-4`), check data normalization with `normalize_spectrum()`, monitor gradient norms.
-
----
-
-## Kaggle Competitions
-
-| Competition | Task | Metric | Approach |
-|-------------|------|--------|----------|
-| Novozymes Enzyme Stability | Rank mutations by Tm | Spearman correlation | Mass-perturbation NMA + delta features |
-| CAFA 5 Function Prediction | Predict GO terms | Hierarchical F-max | Spectrum-function correlation + taxon embeddings |
-
----
-
-## VibroPredict (Phase 3): Enzyme Kinetics Prediction
-
-VibroPredict extends QDD to predict enzyme catalytic turnover (k_cat) using a 3-branch hybrid model:
-
-```
-Sequence ──► ProtT5 Encoder ──────► h_seq (1024-dim)  ─┐
-VDOS ──────► SpectralCNN ─────────► h_spec (128-dim)   ├─► TriModalFusion ──► MLP ──► log₁₀(k_cat)
-SMILES ────► ChemBERTa + DRFP ───► h_chem (1024-dim)  ─┘
-```
-
-### Quick Start
-
-```python
-from vibropredict.models.vibropredict_hybrid import VibroPredictHybrid
-
-model = VibroPredictHybrid(fusion_dim=512, dropout=0.2)
-logkcat, gates = model(sequences, vdos, substrate_smiles)
-```
-
-### Training with MM-Drop
-
-```python
-from vibropredict.training.trainer import TrainerWithMMDrop
-from vibropredict.training.losses import MutantRankingLoss
-
-trainer = TrainerWithMMDrop(model, optimizer, device='cuda')
-trainer.fit(train_loader, val_loader, MutantRankingLoss(), epochs=50, p_drop=0.25)
-```
-
-### Components
+### Phase 1-2: Quantum Data Decoder (Core)
 
 | Module | Purpose |
 |--------|---------|
-| `vibropredict/data/` | KinHub-27k loader, EnzyExtractDB filter, standardization, dataset |
+| `src/nma_analysis.py` | ANM/GNM normal mode analysis |
+| `src/spectral_generation.py` | VDOS synthesis with Lorentzian broadening |
+| `src/models/gnn.py` | GATv2 graph encoder for protein structures |
+| `src/models/cnn.py` | 1D CNN spectral encoder |
+| `src/models/multimodal.py` | Bilinear/attention fusion + task heads |
+| `src/models/losses.py` | Ranking, focal, contrastive, correlation losses |
+| `src/training.py` | Trainer with early stopping and checkpointing |
+| `src/datasets.py` | Novozymes + CAFA5 dataset loaders |
+
+### Phase 3: VibroPredict (Enzyme Kinetics)
+
+| Module | Purpose |
+|--------|---------|
+| `vibropredict/models/` | ProtT5 encoder, ChemBERTa+DRFP encoder, TriModalFusion, hybrid model |
+| `vibropredict/training/` | TrainerWithMMDrop, MutantRankingLoss, metrics |
+| `vibropredict/data/` | KinHub-27k loader, EnzyExtractDB filter, standardization |
 | `vibropredict/structures/` | SIFTS mapper, ESMFold predictor, pLDDT quality control |
-| `vibropredict/spectra/` | GNM calculator, VDOS engine |
-| `vibropredict/models/` | ProtT5 encoder, ChemBERTa+DRFP encoder, 3-way fusion, hybrid model |
-| `vibropredict/training/` | MutantRankingLoss, TrainerWithMMDrop, metrics |
-| `vibropredict/evaluation/` | Ablation study, SOTA comparison, visualization |
+| `vibropredict/spectra/` | GNM calculator, batch VDOS engine |
+| `vibropredict/evaluation/` | Ablation runner, SOTA comparison, visualization |
 
-See `vibropredict/notebooks/` for full walkthroughs (05-08).
+## Project Structure
 
----
+```
+├── src/                    # QDD core (Phase 1-2)
+│   ├── models/             # GNN, CNN, fusion, losses
+│   ├── training.py         # Trainer + metrics
+│   ├── datasets.py         # Dataset classes
+│   └── nma_analysis.py     # Normal mode analysis
+├── vibropredict/           # VibroPredict (Phase 3)
+│   ├── models/             # ProtT5, ChemBERTa, fusion, hybrid
+│   ├── training/           # MM-Drop trainer, ranking loss
+│   ├── data/               # KinHub, EnzyExtract, dataset
+│   ├── structures/         # SIFTS, ESMFold, QC
+│   ├── spectra/            # GNM, VDOS engine
+│   └── evaluation/         # Ablation, benchmarks, plots
+├── notebooks/              # 4 QDD notebooks
+├── vibropredict/notebooks/ # 4 VibroPredict notebooks
+├── tests/                  # 103+ unit tests
+├── demo/                   # Interactive GitHub Pages demo
+└── docs/                   # Phase 2 report, future plans
+```
+
+## Notebooks
+
+| # | Notebook | Topic |
+|---|----------|-------|
+| 01 | `notebooks/01_quickstart.ipynb` | Full pipeline overview |
+| 02 | `notebooks/02_nma_prototype.ipynb` | NMA on Ubiquitin with VDOS plots |
+| 03 | `notebooks/03_novozymes_execution.ipynb` | Enzyme stability prediction |
+| 04 | `notebooks/04_cafa5_execution.ipynb` | GO term function prediction |
+| 05 | `vibropredict/notebooks/05_vibropredict_intro.ipynb` | Tri-modal architecture demo |
+| 06 | `vibropredict/notebooks/06_database_construction.ipynb` | VP-DB construction |
+| 07 | `vibropredict/notebooks/07_model_training.ipynb` | Training with MM-Drop |
+| 08 | `vibropredict/notebooks/08_ablation_study.ipynb` | Ablation + SOTA comparison |
 
 ## References
 
-1. Markelz et al. "Protein Dynamics and Hydration Water" (Biophys. J., 2010)
-2. Bahar & Rader. "Coarse-Grained Normal Mode Analysis" (Curr. Opin. Struct. Biol., 2005)
+1. Bahar & Rader. "Coarse-Grained Normal Mode Analysis" (Curr. Opin. Struct. Biol., 2005)
+2. Markelz et al. "Protein Dynamics and Hydration Water" (Biophys. J., 2010)
 3. Engel et al. "Quantum Effects in Photosynthesis" (Nature, 2007)
+4. Probst & Reymond. "Differential Reaction Fingerprints" (J. Chem. Inf. Model., 2020)
+
+## Citation
+
+```bibtex
+@software{qdd2025,
+  title={Quantum Data Decoder: Physics-Aware Deep Learning for Protein Function},
+  year={2025},
+  url={https://github.com/jayhemnani9910/nobel-dataintelligence}
+}
+```
 
 ## License
 

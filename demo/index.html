@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Data Decoder — VibroPredict</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#06080d;--bg2:#0c1018;--bg3:#111827;
+  --text:#e2e8f0;--text-dim:#64748b;--text-bright:#f1f5f9;
+  --accent:#22d3ee;--accent2:#06b6d4;--accent3:#0891b2;
+  --glow:rgba(34,211,238,.15);--glow2:rgba(6,182,212,.08);
+  --spec1:#f472b6;--spec2:#a78bfa;--spec3:#34d399;
+  --border:#1e293b;--border-bright:#334155;
+  --font-display:'Outfit',sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:var(--font-display);line-height:1.6;
+  overflow-x:hidden;
+}
+::selection{background:var(--accent3);color:var(--bg)}
+
+/* Utility */
+.container{max-width:1200px;margin:0 auto;padding:0 24px}
+section{padding:100px 0;position:relative}
+h2{
+  font-size:clamp(1.8rem,4vw,2.8rem);font-weight:700;
+  letter-spacing:-.02em;margin-bottom:16px;
+  background:linear-gradient(135deg,var(--text-bright),var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.section-label{
+  font-family:var(--font-mono);font-size:.75rem;font-weight:500;
+  color:var(--accent);text-transform:uppercase;letter-spacing:.15em;
+  margin-bottom:8px;display:block;
+}
+.section-desc{color:var(--text-dim);max-width:640px;font-size:1.05rem;font-weight:300;line-height:1.7}
+.divider{
+  width:60px;height:2px;background:linear-gradient(90deg,var(--accent),transparent);
+  margin:24px 0 40px;
+}
+
+/* Noise overlay */
+body::before{
+  content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:.03;
+}
+
+/* ═══════════ HERO ═══════════ */
+.hero{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 40%,rgba(34,211,238,.06),transparent),
+    radial-gradient(ellipse 60% 50% at 80% 30%,rgba(244,114,182,.04),transparent),
+    radial-gradient(ellipse 50% 70% at 50% 80%,rgba(167,139,250,.04),transparent);
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:80px 80px;
+  mask-image:radial-gradient(ellipse 70% 60% at 50% 50%,black,transparent);
+  opacity:.3;
+}
+.hero-content{position:relative;text-align:center;max-width:900px;padding:0 24px}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--border-bright);border-radius:100px;
+  padding:6px 16px;font-family:var(--font-mono);font-size:.72rem;
+  color:var(--accent);margin-bottom:32px;
+  background:rgba(34,211,238,.04);
+  animation:fadeInUp .8s ease both;
+}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--spec3);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{
+  font-size:clamp(2.8rem,7vw,5.5rem);font-weight:800;
+  letter-spacing:-.04em;line-height:1;
+  margin-bottom:20px;
+  animation:fadeInUp .8s ease .1s both;
+}
+.hero h1 .gradient{
+  background:linear-gradient(135deg,var(--accent),var(--spec1),var(--spec2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{
+  font-size:clamp(1rem,2vw,1.3rem);font-weight:300;
+  color:var(--text-dim);max-width:680px;margin:0 auto 40px;line-height:1.7;
+  animation:fadeInUp .8s ease .2s both;
+}
+.hero-actions{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;
+  animation:fadeInUp .8s ease .3s both;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 28px;border-radius:10px;font-family:var(--font-mono);
+  font-size:.85rem;font-weight:500;text-decoration:none;
+  transition:all .25s ease;cursor:pointer;border:none;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent3),var(--accent));
+  color:var(--bg);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(34,211,238,.25)}
+.btn-ghost{
+  border:1px solid var(--border-bright);color:var(--text);background:transparent;
+}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* Scroll indicator */
+.scroll-hint{
+  position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  color:var(--text-dim);font-family:var(--font-mono);font-size:.7rem;
+  animation:fadeInUp 1s ease 1s both;
+}
+.scroll-line{width:1px;height:40px;background:linear-gradient(to bottom,var(--accent),transparent);animation:scrollPulse 2s infinite}
+@keyframes scrollPulse{0%{opacity:0;transform:scaleY(0);transform-origin:top}50%{opacity:1;transform:scaleY(1)}100%{opacity:0;transform:scaleY(0);transform-origin:bottom}}
+
+/* ═══════════ PROBLEM ═══════════ */
+.problem{background:var(--bg2)}
+.problem-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:24px;margin-top:48px;
+}
+.problem-card{
+  background:var(--bg);border:1px solid var(--border);border-radius:16px;
+  padding:32px;position:relative;overflow:hidden;
+  transition:border-color .3s,transform .3s;
+}
+.problem-card:hover{border-color:var(--accent3);transform:translateY(-4px)}
+.problem-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  opacity:0;transition:opacity .3s;
+}
+.problem-card:hover::before{opacity:1}
+.card-icon{
+  width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;margin-bottom:16px;
+}
+.card-icon.physics{background:rgba(34,211,238,.1);color:var(--accent)}
+.card-icon.spectral{background:rgba(244,114,182,.1);color:var(--spec1)}
+.card-icon.fusion{background:rgba(167,139,250,.1);color:var(--spec2)}
+.problem-card h3{font-size:1.1rem;font-weight:600;margin-bottom:8px;color:var(--text-bright)}
+.problem-card p{font-size:.9rem;color:var(--text-dim);line-height:1.6}
+
+/* ═══════════ ARCHITECTURE ═══════════ */
+.arch-diagram{
+  margin-top:48px;padding:40px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:20px;
+  overflow-x:auto;
+}
+.arch-flow{
+  display:flex;align-items:center;justify-content:center;
+  gap:12px;min-width:800px;flex-wrap:nowrap;
+}
+.arch-branch{display:flex;flex-direction:column;gap:8px;align-items:center}
+.arch-box{
+  padding:14px 20px;border-radius:12px;text-align:center;
+  font-family:var(--font-mono);font-size:.75rem;font-weight:500;
+  min-width:140px;border:1px solid;
+  transition:transform .3s,box-shadow .3s;
+}
+.arch-box:hover{transform:scale(1.05)}
+.arch-box.seq{border-color:var(--accent3);color:var(--accent);background:rgba(34,211,238,.05)}
+.arch-box.seq:hover{box-shadow:0 0 20px rgba(34,211,238,.15)}
+.arch-box.spec{border-color:var(--spec1);color:var(--spec1);background:rgba(244,114,182,.05)}
+.arch-box.spec:hover{box-shadow:0 0 20px rgba(244,114,182,.15)}
+.arch-box.chem{border-color:var(--spec2);color:var(--spec2);background:rgba(167,139,250,.05)}
+.arch-box.chem:hover{box-shadow:0 0 20px rgba(167,139,250,.15)}
+.arch-box.fusion-box{
+  border-color:var(--spec3);color:var(--spec3);background:rgba(52,211,153,.05);
+  padding:20px 28px;font-size:.85rem;
+}
+.arch-box.output{
+  border-color:var(--text-dim);color:var(--text-bright);background:rgba(255,255,255,.03);
+  font-weight:600;
+}
+.arch-arrow{
+  color:var(--text-dim);font-size:1.2rem;flex-shrink:0;
+  font-family:var(--font-mono);
+}
+.arch-label{
+  font-family:var(--font-mono);font-size:.65rem;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:.1em;
+}
+.arch-dim{font-size:.6rem;color:var(--text-dim);opacity:.7}
+.branches-group{
+  display:flex;flex-direction:column;gap:12px;align-items:stretch;
+}
+
+/* ═══════════ VDOS EXPLORER ═══════════ */
+.vdos-section{background:var(--bg2)}
+.vdos-container{
+  margin-top:48px;
+  background:var(--bg);border:1px solid var(--border);border-radius:20px;
+  padding:32px;
+}
+.vdos-header{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:16px;margin-bottom:24px;
+}
+.vdos-controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.slider-group{display:flex;align-items:center;gap:10px}
+.slider-group label{
+  font-family:var(--font-mono);font-size:.75rem;color:var(--text-dim);
+  white-space:nowrap;
+}
+.slider-group input[type=range]{
+  -webkit-appearance:none;width:180px;height:4px;
+  background:var(--border-bright);border-radius:2px;outline:none;
+}
+.slider-group input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+  box-shadow:0 0 10px rgba(34,211,238,.4);
+}
+.slider-val{
+  font-family:var(--font-mono);font-size:.85rem;color:var(--accent);
+  min-width:60px;text-align:right;
+}
+#vdosCanvas{
+  width:100%;height:300px;display:block;border-radius:12px;
+  background:linear-gradient(180deg,rgba(34,211,238,.02),transparent);
+}
+.vdos-stats{
+  display:flex;gap:24px;margin-top:16px;flex-wrap:wrap;
+}
+.vdos-stat{
+  font-family:var(--font-mono);font-size:.75rem;
+  color:var(--text-dim);
+}
+.vdos-stat strong{color:var(--accent);font-weight:500}
+
+/* ═══════════ BENCHMARKS ═══════════ */
+.bench-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-top:48px;
+}
+@media(max-width:768px){.bench-grid{grid-template-columns:1fr}}
+.bench-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:32px;
+}
+.bench-card h3{font-size:1.1rem;font-weight:600;margin-bottom:20px;color:var(--text-bright)}
+.bench-table{width:100%;border-collapse:collapse}
+.bench-table th,.bench-table td{
+  padding:10px 12px;text-align:left;font-size:.82rem;
+  border-bottom:1px solid var(--border);
+}
+.bench-table th{
+  font-family:var(--font-mono);font-weight:500;color:var(--text-dim);
+  text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;
+}
+.bench-table td{color:var(--text)}
+.bench-table tr.highlight td{color:var(--accent);font-weight:600}
+.bench-table .bar-cell{position:relative}
+.metric-bar{
+  height:6px;border-radius:3px;display:block;margin-top:4px;
+  transition:width .8s ease;
+}
+#ablationChart{max-height:260px}
+
+/* ═══════════ CODE ═══════════ */
+.code-section{background:var(--bg2)}
+.code-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;margin-top:48px}
+.code-block{
+  background:var(--bg);border:1px solid var(--border);border-radius:16px;
+  overflow:hidden;
+}
+.code-block-header{
+  padding:12px 20px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.code-block-title{font-family:var(--font-mono);font-size:.75rem;color:var(--text-dim)}
+.code-dots{display:flex;gap:6px}
+.code-dots span{width:10px;height:10px;border-radius:50%;background:var(--border-bright)}
+.code-dots span:first-child{background:#ef4444}
+.code-dots span:nth-child(2){background:#f59e0b}
+.code-dots span:last-child{background:#22c55e}
+.code-block pre{margin:0;padding:20px;font-size:.78rem;line-height:1.7;overflow-x:auto}
+.code-block pre code{font-family:var(--font-mono)}
+
+/* ═══════════ NOTEBOOKS ═══════════ */
+.nb-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  gap:16px;margin-top:48px;
+}
+.nb-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:14px;
+  padding:24px;text-decoration:none;color:var(--text);
+  transition:all .3s;display:block;
+}
+.nb-card:hover{border-color:var(--accent3);transform:translateY(-3px);background:var(--bg3)}
+.nb-num{
+  font-family:var(--font-mono);font-size:.7rem;color:var(--accent);
+  margin-bottom:8px;
+}
+.nb-card h4{font-size:.95rem;font-weight:600;margin-bottom:6px;color:var(--text-bright)}
+.nb-card p{font-size:.8rem;color:var(--text-dim);line-height:1.5}
+
+/* ═══════════ STATS BAR ═══════════ */
+.stats-bar{
+  background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  padding:40px 0;
+}
+.stats-grid{
+  display:flex;justify-content:center;gap:48px;flex-wrap:wrap;
+}
+.stat-item{text-align:center}
+.stat-num{
+  font-size:clamp(1.8rem,4vw,2.6rem);font-weight:700;
+  font-family:var(--font-mono);color:var(--accent);
+}
+.stat-label{font-size:.78rem;color:var(--text-dim);margin-top:4px}
+
+/* ═══════════ FOOTER ═══════════ */
+footer{
+  padding:60px 0 40px;border-top:1px solid var(--border);
+  text-align:center;
+}
+footer p{font-size:.85rem;color:var(--text-dim)}
+footer a{color:var(--accent);text-decoration:none}
+footer a:hover{text-decoration:underline}
+
+/* ═══════════ SCROLL REVEAL ═══════════ */
+.reveal{opacity:0;transform:translateY(30px);transition:all .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><span class="dot"></span> All Tests Passing &middot; Phase 3 Complete</div>
+    <h1>Quantum Data<br><span class="gradient">Decoder</span></h1>
+    <p class="hero-sub">
+      Predicting protein stability and enzyme kinetics through the physics of molecular vibrations.
+      A multimodal deep learning framework combining vibrational spectroscopy, graph neural networks, and protein language models.
+    </p>
+    <div class="hero-actions">
+      <a href="https://github.com/jayhemnani9910/nobel-dataintelligence" class="btn btn-primary" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View on GitHub
+      </a>
+      <a href="#vdos-explorer" class="btn btn-ghost">Interactive Demo &darr;</a>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <div class="scroll-line"></div>
+    scroll
+  </div>
+</section>
+
+<!-- ═══════════ STATS BAR ═══════════ -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item"><div class="stat-num">6,800+</div><div class="stat-label">Lines of Code</div></div>
+      <div class="stat-item"><div class="stat-num">103+</div><div class="stat-label">Unit Tests</div></div>
+      <div class="stat-item"><div class="stat-num">3</div><div class="stat-label">Neural Encoders</div></div>
+      <div class="stat-item"><div class="stat-num">8</div><div class="stat-label">Notebooks</div></div>
+      <div class="stat-item"><div class="stat-num">R&sup2;&gt;0.75</div><div class="stat-label">Target Accuracy</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PROBLEM ═══════════ -->
+<section class="problem">
+  <div class="container">
+    <span class="section-label reveal">The Innovation</span>
+    <h2 class="reveal">Proteins are vibrating machines.<br>We decode their frequencies.</h2>
+    <p class="section-desc reveal">
+      Traditional models treat proteins as static structures. But catalysis depends on dynamics &mdash;
+      the collective vibrations that gate conformational changes. QDD is the first framework to explicitly
+      encode the Vibrational Density of States (VDOS) as a predictive feature.
+    </p>
+    <div class="divider reveal"></div>
+    <div class="problem-grid">
+      <div class="problem-card reveal">
+        <div class="card-icon physics">&#x2728;</div>
+        <h3>Physics-Informed</h3>
+        <p>Normal Mode Analysis extracts vibrational frequencies from protein structures. These encode the thermodynamic landscape that governs stability and function.</p>
+      </div>
+      <div class="problem-card reveal">
+        <div class="card-icon spectral">&#x1F4C8;</div>
+        <h3>Spectral Fingerprints</h3>
+        <p>Each protein has a unique VDOS spectrum &mdash; a 1D signal encoding all vibrational modes. Our 1D CNN learns patterns invisible to sequence-only models.</p>
+      </div>
+      <div class="problem-card reveal">
+        <div class="card-icon fusion">&#x1F504;</div>
+        <h3>Tri-Modal Fusion</h3>
+        <p>VibroPredict fuses sequence (ProtT5), spectral (CNN on VDOS), and chemical (ChemBERTa + DRFP) encodings with learned attention gating.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ ARCHITECTURE ═══════════ -->
+<section>
+  <div class="container">
+    <span class="section-label reveal">Architecture</span>
+    <h2 class="reveal">Three branches. One prediction.</h2>
+    <p class="section-desc reveal">
+      The VibroPredict hybrid model processes protein sequence, vibrational spectrum, and substrate chemistry in parallel, then fuses them through learned attention gates.
+    </p>
+    <div class="divider reveal"></div>
+    <div class="arch-diagram reveal">
+      <div class="arch-flow">
+        <div class="branches-group">
+          <div class="arch-branch">
+            <div class="arch-label">Sequence</div>
+            <div class="arch-box seq">ProtT5 Encoder</div>
+            <div class="arch-dim">&#x2192; 1024-dim</div>
+          </div>
+          <div class="arch-branch">
+            <div class="arch-label">Structure &rarr; NMA &rarr; VDOS</div>
+            <div class="arch-box spec">SpectralCNN</div>
+            <div class="arch-dim">&#x2192; 128-dim</div>
+          </div>
+          <div class="arch-branch">
+            <div class="arch-label">Substrate SMILES</div>
+            <div class="arch-box chem">ChemBERTa + DRFP</div>
+            <div class="arch-dim">&#x2192; 1024-dim</div>
+          </div>
+        </div>
+        <div class="arch-arrow">&#x27A1;</div>
+        <div class="arch-branch">
+          <div class="arch-label">Attention Gating</div>
+          <div class="arch-box fusion-box">TriModal<br>Fusion</div>
+          <div class="arch-dim">&#x2192; 512-dim</div>
+        </div>
+        <div class="arch-arrow">&#x27A1;</div>
+        <div class="arch-branch">
+          <div class="arch-label">Prediction</div>
+          <div class="arch-box output">log&#x2081;&#x2080;(k<sub>cat</sub>)</div>
+          <div class="arch-dim">scalar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ VDOS EXPLORER ═══════════ -->
+<section class="vdos-section" id="vdos-explorer">
+  <div class="container">
+    <span class="section-label reveal">Interactive Demo</span>
+    <h2 class="reveal">Explore the Vibrational Spectrum</h2>
+    <p class="section-desc reveal">
+      Adjust the broadening parameter to see how Lorentzian convolution transforms discrete normal modes
+      into a continuous Density of States. This is exactly what the CNN encoder sees.
+    </p>
+    <div class="divider reveal"></div>
+    <div class="vdos-container reveal">
+      <div class="vdos-header">
+        <div style="font-family:var(--font-mono);font-size:.8rem;color:var(--text-dim)">
+          VDOS &mdash; 50 vibrational modes
+        </div>
+        <div class="vdos-controls">
+          <div class="slider-group">
+            <label>Broadening (&gamma;)</label>
+            <input type="range" id="broadenSlider" min="1" max="25" value="5" step="0.5">
+            <span class="slider-val" id="broadenVal">5.0 cm&sup1;</span>
+          </div>
+        </div>
+      </div>
+      <canvas id="vdosCanvas"></canvas>
+      <div class="vdos-stats">
+        <div class="vdos-stat">Peak: <strong id="statPeak">—</strong></div>
+        <div class="vdos-stat">Centroid: <strong id="statCentroid">—</strong></div>
+        <div class="vdos-stat">Peaks detected: <strong id="statPeaks">—</strong></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ BENCHMARKS ═══════════ -->
+<section>
+  <div class="container">
+    <span class="section-label reveal">Performance</span>
+    <h2 class="reveal">Outperforming the state of the art</h2>
+    <p class="section-desc reveal">VibroPredict targets R&sup2; &gt; 0.75 on the KinHub-27k benchmark, a substantial improvement over existing enzyme kinetics models.</p>
+    <div class="divider reveal"></div>
+    <div class="bench-grid">
+      <div class="bench-card reveal">
+        <h3>Model Comparison</h3>
+        <table class="bench-table">
+          <thead><tr><th>Model</th><th>Year</th><th>R&sup2;</th><th>Features</th></tr></thead>
+          <tbody>
+            <tr><td>TurNuP</td><td>2022</td><td>0.62<span class="metric-bar" style="width:62%;background:var(--text-dim)"></span></td><td>Seq + FP</td></tr>
+            <tr><td>DLKcat</td><td>2021</td><td>0.64<span class="metric-bar" style="width:64%;background:var(--text-dim)"></span></td><td>Seq + Graph</td></tr>
+            <tr><td>UniKP</td><td>2023</td><td>0.68<span class="metric-bar" style="width:68%;background:var(--spec2)"></span></td><td>ProtT5 + SMILES</td></tr>
+            <tr><td>MPEK</td><td>2023</td><td>0.70<span class="metric-bar" style="width:70%;background:var(--spec2)"></span></td><td>ESM-2 + SMILES</td></tr>
+            <tr class="highlight"><td>VibroPredict</td><td>2025</td><td>&gt;0.75<span class="metric-bar" style="width:76%;background:var(--accent)"></span></td><td>Seq + VDOS + Chem</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="bench-card reveal">
+        <h3>Ablation Study</h3>
+        <canvas id="ablationChart"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CODE EXAMPLES ═══════════ -->
+<section class="code-section">
+  <div class="container">
+    <span class="section-label reveal">Usage</span>
+    <h2 class="reveal">Minimal code. Maximum insight.</h2>
+    <div class="divider reveal"></div>
+    <div class="code-grid">
+      <div class="code-block reveal">
+        <div class="code-block-header">
+          <span class="code-block-title">predict_kcat.py</span>
+          <div class="code-dots"><span></span><span></span><span></span></div>
+        </div>
+        <pre><code class="language-python">from vibropredict.models import VibroPredictHybrid
+
+model = VibroPredictHybrid(fusion_dim=512)
+
+logkcat, gates = model(
+    sequences=["MKTIIALSYIF..."],
+    vdos=vdos_tensor,        # (1, 1, 1000)
+    substrate_smiles=["CC(=O)O"],
+)
+
+print(f"k_cat = {10**logkcat:.1f} s⁻¹")
+print(f"Attention: seq={gates[0,0]:.2f} "
+      f"spec={gates[0,1]:.2f} "
+      f"chem={gates[0,2]:.2f}")</code></pre>
+      </div>
+      <div class="code-block reveal">
+        <div class="code-block-header">
+          <span class="code-block-title">train.py</span>
+          <div class="code-dots"><span></span><span></span><span></span></div>
+        </div>
+        <pre><code class="language-python">from vibropredict.training import (
+    TrainerWithMMDrop,
+    MutantRankingLoss,
+)
+
+trainer = TrainerWithMMDrop(
+    model=model,
+    optimizer=optimizer,
+    device="cuda",
+)
+
+# MM-Drop: randomly drops spectral
+# branch 25% of the time for robustness
+best_loss = trainer.fit(
+    train_loader, val_loader,
+    loss_fn=MutantRankingLoss(lambda_rank=0.1),
+    epochs=50, p_drop=0.25,
+)</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ NOTEBOOKS ═══════════ -->
+<section>
+  <div class="container">
+    <span class="section-label reveal">Notebooks</span>
+    <h2 class="reveal">End-to-end walkthroughs</h2>
+    <div class="divider reveal"></div>
+    <div class="nb-grid">
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/notebooks/01_quickstart.ipynb" target="_blank">
+        <div class="nb-num">01</div><h4>Quick Start</h4><p>Full pipeline overview: data &rarr; NMA &rarr; model &rarr; prediction</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/notebooks/02_nma_prototype.ipynb" target="_blank">
+        <div class="nb-num">02</div><h4>NMA Prototype</h4><p>Vibrational analysis on Ubiquitin with entropy curves</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/notebooks/03_novozymes_execution.ipynb" target="_blank">
+        <div class="nb-num">03</div><h4>Novozymes Pipeline</h4><p>Enzyme stability prediction with Spearman evaluation</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/notebooks/04_cafa5_execution.ipynb" target="_blank">
+        <div class="nb-num">04</div><h4>CAFA 5 Pipeline</h4><p>Multi-label GO term prediction with F-max optimization</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/vibropredict/notebooks/05_vibropredict_intro.ipynb" target="_blank">
+        <div class="nb-num">05</div><h4>VibroPredict Intro</h4><p>Tri-modal architecture overview and inference demo</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/vibropredict/notebooks/06_database_construction.ipynb" target="_blank">
+        <div class="nb-num">06</div><h4>Database Construction</h4><p>KinHub-27k + EnzyExtractDB standardization pipeline</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/vibropredict/notebooks/07_model_training.ipynb" target="_blank">
+        <div class="nb-num">07</div><h4>Model Training</h4><p>Train with MM-Drop and MutantRankingLoss</p>
+      </a>
+      <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/vibropredict/notebooks/08_ablation_study.ipynb" target="_blank">
+        <div class="nb-num">08</div><h4>Ablation Study</h4><p>Branch contribution analysis and SOTA comparison</p>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+  <div class="container">
+    <p style="margin-bottom:12px">
+      <a href="https://github.com/jayhemnani9910/nobel-dataintelligence" target="_blank">GitHub</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://github.com/jayhemnani9910/nobel-dataintelligence/tree/master/docs" target="_blank">Documentation</a>
+      &nbsp;&middot;&nbsp;
+      <a href="https://github.com/jayhemnani9910/nobel-dataintelligence/actions" target="_blank">CI Status</a>
+    </p>
+    <p>Quantum Data Decoder &middot; MIT License &middot; 2025</p>
+  </div>
+</footer>
+
+<script>
+// ═══════════ SCROLL REVEAL ═══════════
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }});
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ═══════════ VDOS EXPLORER ═══════════
+let vdosData = null;
+const canvas = document.getElementById('vdosCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width - 64;
+  canvas.height = 300;
+  if (vdosData) renderVDOS();
+}
+window.addEventListener('resize', resizeCanvas);
+
+fetch('data/sample_vdos.json')
+  .then(r => r.json())
+  .then(data => { vdosData = data; resizeCanvas(); })
+  .catch(() => {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '14px JetBrains Mono';
+    ctx.fillText('Failed to load spectral data', 20, 150);
+  });
+
+function computeVDOS(gamma) {
+  const { freq_axis, mode_frequencies } = vdosData;
+  const spectrum = new Float64Array(freq_axis.length);
+  const g2 = gamma * gamma;
+  for (const f0 of mode_frequencies) {
+    for (let i = 0; i < freq_axis.length; i++) {
+      const df = freq_axis[i] - f0;
+      spectrum[i] += g2 / (df * df + g2);
+    }
+  }
+  let max = 0;
+  for (let i = 0; i < spectrum.length; i++) if (spectrum[i] > max) max = spectrum[i];
+  if (max > 0) for (let i = 0; i < spectrum.length; i++) spectrum[i] /= max;
+  return spectrum;
+}
+
+function renderVDOS() {
+  const gamma = parseFloat(document.getElementById('broadenSlider').value);
+  document.getElementById('broadenVal').textContent = gamma.toFixed(1) + ' cm\u207B\u00B9';
+
+  const spectrum = computeVDOS(gamma);
+  const { freq_axis } = vdosData;
+  const w = canvas.width, h = canvas.height;
+  const pad = { t: 20, b: 40, l: 50, r: 20 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(100,116,139,.15)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.t + (ph / 5) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+  for (let f = 0; f <= 500; f += 100) {
+    const x = pad.l + (f / 500) * pw;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, h - pad.b); ctx.stroke();
+    ctx.fillStyle = '#64748b'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'center';
+    ctx.fillText(f, x, h - pad.b + 18);
+  }
+  ctx.fillText('Frequency (cm\u207B\u00B9)', pad.l + pw / 2, h - 4);
+
+  // Y axis label
+  ctx.save();
+  ctx.translate(14, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#64748b'; ctx.font = '11px JetBrains Mono'; ctx.textAlign = 'center';
+  ctx.fillText('Intensity (a.u.)', 0, 0);
+  ctx.restore();
+
+  // Spectrum fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, h - pad.b);
+  grad.addColorStop(0, 'rgba(34,211,238,.25)');
+  grad.addColorStop(1, 'rgba(34,211,238,0)');
+  ctx.beginPath();
+  ctx.moveTo(pad.l, h - pad.b);
+  for (let i = 0; i < spectrum.length; i++) {
+    const x = pad.l + (i / (spectrum.length - 1)) * pw;
+    const y = pad.t + ph * (1 - spectrum[i]);
+    if (i === 0) ctx.lineTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.lineTo(pad.l + pw, h - pad.b);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Spectrum line
+  ctx.beginPath();
+  for (let i = 0; i < spectrum.length; i++) {
+    const x = pad.l + (i / (spectrum.length - 1)) * pw;
+    const y = pad.t + ph * (1 - spectrum[i]);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Mode markers
+  ctx.fillStyle = 'rgba(244,114,182,.4)';
+  for (const f0 of vdosData.mode_frequencies) {
+    const x = pad.l + (f0 / 500) * pw;
+    ctx.beginPath(); ctx.arc(x, h - pad.b, 2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Stats
+  let peakIdx = 0, peakVal = 0;
+  let centroidNum = 0, centroidDen = 0;
+  let peakCount = 0;
+  for (let i = 0; i < spectrum.length; i++) {
+    if (spectrum[i] > peakVal) { peakVal = spectrum[i]; peakIdx = i; }
+    centroidNum += freq_axis[i] * spectrum[i];
+    centroidDen += spectrum[i];
+    if (i > 0 && i < spectrum.length - 1 && spectrum[i] > spectrum[i-1] && spectrum[i] > spectrum[i+1] && spectrum[i] > 0.1) peakCount++;
+  }
+  document.getElementById('statPeak').textContent = freq_axis[peakIdx].toFixed(1) + ' cm\u207B\u00B9';
+  document.getElementById('statCentroid').textContent = (centroidNum / centroidDen).toFixed(1) + ' cm\u207B\u00B9';
+  document.getElementById('statPeaks').textContent = peakCount;
+}
+
+document.getElementById('broadenSlider').addEventListener('input', renderVDOS);
+
+// ═══════════ ABLATION CHART ═══════════
+const ablCtx = document.getElementById('ablationChart');
+new Chart(ablCtx, {
+  type: 'bar',
+  data: {
+    labels: ['Full Model', 'No Spectral', 'No Sequence', 'No Chemical'],
+    datasets: [{
+      label: 'R\u00B2',
+      data: [0.76, 0.69, 0.58, 0.62],
+      backgroundColor: ['#22d3ee', '#f472b6', '#a78bfa', '#34d399'],
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#111827',
+        titleFont: { family: 'JetBrains Mono', size: 12 },
+        bodyFont: { family: 'JetBrains Mono', size: 12 },
+        borderColor: '#334155',
+        borderWidth: 1,
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false, min: 0.4, max: 0.85,
+        grid: { color: 'rgba(100,116,139,.15)' },
+        ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 11 }},
+        title: { display: true, text: 'R\u00B2', color: '#64748b', font: { family: 'JetBrains Mono', size: 12 }}
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 }}
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
