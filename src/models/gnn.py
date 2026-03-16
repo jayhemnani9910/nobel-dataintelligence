@@ -9,11 +9,12 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from src.utils import AA_TO_IDX, HYDROPHOBICITY
 
 try:
     from torch_geometric.nn import GATv2Conv, global_mean_pool, global_max_pool  # type: ignore
     from torch_geometric.data import Data  # type: ignore
-except Exception as exc:  # pragma: no cover
+except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "torch_geometric is required for `src.models.gnn`. Install it (and its compiled dependencies) "
         "to use graph neural network features."
@@ -191,27 +192,12 @@ class GraphConstruction:
         Returns:
             Feature tensor (num_residues, feature_dim)
         """
-        # Standard amino acid encoding
-        AA_CODES = {
-            'A': 0, 'R': 1, 'N': 2, 'D': 3, 'C': 4, 'Q': 5, 'E': 6, 'G': 7,
-            'H': 8, 'I': 9, 'L': 10, 'K': 11, 'M': 12, 'F': 13, 'P': 14,
-            'S': 15, 'T': 16, 'W': 17, 'Y': 18, 'V': 19, 'X': 20, 'Z': 21
-        }
-        
-        # Physicochemical properties (hydrophobicity, charge, size)
-        HYDROPHOBICITY = {
-            'A': 1.8, 'R': -4.5, 'N': -3.5, 'D': -3.5, 'C': 2.5, 'Q': -3.5,
-            'E': -3.5, 'G': -0.4, 'H': -3.2, 'I': 4.5, 'L': 3.8, 'K': -3.9,
-            'M': 1.9, 'F': 2.8, 'P': -1.6, 'S': -0.8, 'T': -0.7, 'W': -0.9,
-            'Y': -1.3, 'V': 4.2, 'X': 0.0, 'Z': -3.5
-        }
-        
         features = []
         for i, aa in enumerate(sequence):
             # One-hot encoding (22-dim)
             onehot = torch.zeros(22)
-            if aa in AA_CODES:
-                onehot[AA_CODES[aa]] = 1.0
+            if aa in AA_TO_IDX:
+                onehot[AA_TO_IDX[aa]] = 1.0
             else:
                 onehot[20] = 1.0  # Unknown
             
@@ -231,40 +217,3 @@ class GraphConstruction:
         return torch.stack(features)
 
 
-def main():
-    """Test ProteinGNN module."""
-    logger.info("Testing ProteinGNN module...")
-    
-    # Create dummy protein graph
-    num_residues = 100
-    feature_dim = 24  # 22 (one-hot + AA) + 1 (hydro) + 1 (pLDDT)
-    
-    # Random features and coordinates
-    x = torch.randn(num_residues, feature_dim)
-    ca_coords = torch.randn(num_residues, 3) * 10  # Angstroms
-    
-    # Construct graph
-    data = GraphConstruction.construct_ca_graph(ca_coords, x, distance_cutoff=10.0)
-    
-    logger.info(f"Graph: {data.x.shape[0]} nodes, {data.edge_index.shape[1]} edges")
-    
-    # Create batch (simulate multiple proteins)
-    batch = torch.zeros(num_residues, dtype=torch.long)
-    data.batch = batch
-    
-    # Initialize model
-    model = ProteinGNN(input_dim=feature_dim, hidden_dim=64, output_dim=128)
-    
-    # Forward pass
-    with torch.no_grad():
-        embedding = model(data)
-    
-    logger.info(f"Output embedding shape: {embedding.shape}")
-    assert embedding.shape == (1, 128), "Unexpected output shape"
-    
-    logger.info("ProteinGNN test passed!")
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

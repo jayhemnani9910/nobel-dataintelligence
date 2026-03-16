@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def _require_prody():
     try:
         import prody as pr  # type: ignore
-    except Exception as exc:  # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "ProDy is required for protein structure parsing. Install it with `pip install prody`."
         ) from exc
@@ -31,7 +31,7 @@ def _get_graph_construction():
     # and notebook-style imports (`sys.path.insert(0, './src'); import datasets`).
     try:
         from .models.gnn import GraphConstruction
-    except Exception:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         from models.gnn import GraphConstruction  # type: ignore
     return GraphConstruction
 
@@ -39,7 +39,7 @@ def _get_graph_construction():
 def _get_batch_collate_function():
     try:
         from .utils import batch_collate_function
-    except Exception:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         from utils import batch_collate_function  # type: ignore
     return batch_collate_function
 
@@ -328,30 +328,23 @@ class CAFA5Dataset(Dataset):
         self.spectra_dir = Path(spectra_dir)
         self.structure_dir = Path(structure_dir)
         
+        self._protein_ids = list(self.sequences.keys())
         logger.info(f"CAFA5 dataset: {len(self.sequences)} proteins, {len(self.go_terms)} GO terms")
-    
+
     def _load_fasta(self, fasta_file: str):
         """Load FASTA sequences."""
-        with open(fasta_file, 'r') as f:
-            current_id = None
-            current_seq = []
-            for line in f:
-                if line.startswith('>'):
-                    if current_id:
-                        self.sequences[current_id] = ''.join(current_seq)
-                    current_id = line[1:].split()[0]
-                    current_seq = []
-                else:
-                    current_seq.append(line.strip())
-            if current_id:
-                self.sequences[current_id] = ''.join(current_seq)
+        try:
+            from .utils import parse_fasta
+        except ImportError:  # pragma: no cover
+            from utils import parse_fasta  # type: ignore
+        self.sequences = parse_fasta(fasta_file)
     
     def __len__(self) -> int:
         return len(self.sequences)
     
     def __getitem__(self, idx: int) -> Dict:
         """Load protein (and optionally GO term labels)."""
-        protein_id = list(self.sequences.keys())[idx]
+        protein_id = self._protein_ids[idx]
         sequence = self.sequences[protein_id]
         
         # Load spectrum
@@ -452,11 +445,3 @@ def create_dataloaders(train_dataset: Dataset,
     return train_loader, val_loader, test_loader
 
 
-def main():
-    """Test dataset loading."""
-    logger.info("Dataset module loaded successfully")
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

@@ -11,14 +11,12 @@ Implements:
 import logging
 from typing import Tuple, Optional
 import numpy as np
-from scipy import sparse
-from scipy.sparse.linalg import eigsh
 from pathlib import Path
 
 def _require_prody():
     try:
         import prody as pr  # type: ignore
-    except Exception as exc:  # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "ProDy is required for Normal Mode Analysis (NMA). Install it with `pip install prody`."
         ) from exc
@@ -108,7 +106,7 @@ class ANMAnalyzer:
 
         try:
             self.anm.calcModes(n_total)
-        except Exception as exc:
+        except RuntimeError as exc:
             raise RuntimeError("ProDy failed to calculate ANM modes.") from exc
 
         eigvals = self.anm.getEigvals()
@@ -217,6 +215,9 @@ class ANMAnalyzer:
         x = (hbar * omega) / (kb * temperature)
         
         # Avoid numerical issues with very large x
+        clipped = np.sum(x > 100)
+        if clipped:
+            logger.debug("Clipping %d mode(s) with x > 100 to avoid overflow", clipped)
         x = np.minimum(x, 100)
         
         # Compute entropy per mode
@@ -327,7 +328,7 @@ class GNMAnalyzer:
 
         try:
             self.gnm.calcModes(n_total)
-        except Exception as exc:
+        except RuntimeError as exc:
             raise RuntimeError("ProDy failed to calculate GNM modes.") from exc
 
         eigenvalues = self.gnm.getEigvals()
@@ -380,7 +381,7 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
         'structure1': Path(pdb1_path).name,
         'structure2': Path(pdb2_path).name,
         'delta_entropy_j_mol_k': delta_s_vib,
-        'entropy_shift_pct': (delta_s_vib / s_vib1) * 100,
+        'entropy_shift_pct': (delta_s_vib / s_vib1) * 100 if s_vib1 != 0 else 0.0,
         'frequency_shift_cm1': freq_shift,
         'vdos1': anm1.compute_vdos(k=k),
         'vdos2': anm2.compute_vdos(k=k),
@@ -392,50 +393,3 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
     return result
 
 
-def main():
-    """Demonstration of NMA analysis."""
-    try:
-        pr = _require_prody()
-    except ImportError as exc:
-        logger.error(str(exc))
-        return
-
-    logger.info("=" * 60)
-    logger.info("Quantum Data Decoder: NMA Analysis Module")
-    logger.info("=" * 60)
-    
-    # Download Ubiquitin structure for testing
-    logger.info("\nDownloading Ubiquitin (1UBQ) for testing...")
-    try:
-        pr.fetchPDB('1UBQ', folder='./data/pdb')
-    except Exception as exc:
-        logger.error(f"Failed to fetch PDB 1UBQ (offline or network issue?): {exc}")
-        return
-    pdb_path = './data/pdb/1ubq.pdb'
-    
-    # Run ANM analysis
-    logger.info("\n[Test 1] Anisotropic Network Model Analysis")
-    anm = ANMAnalyzer(pdb_path, cutoff=15.0)
-    freqs, modes = anm.compute_modes(k=100)
-    
-    # Compute VDOS
-    vdos = anm.compute_vdos(k=100, broadening=5.0)
-    
-    # Compute entropy
-    s_vib = anm.compute_vibrational_entropy(k=100, temperature=298.15)
-    
-    # Get collectivity of lowest mode
-    collectivity = anm.get_mode_collectivity(mode_idx=0)
-    logger.info(f"Lowest mode collectivity: {collectivity:.3f}")
-    
-    # Get fluctuations
-    fluct = anm.get_residue_fluctuations(k=100)
-    logger.info(f"Residue fluctuations: min={fluct.min():.3f}, max={fluct.max():.3f} Å²")
-    
-    logger.info("\n" + "=" * 60)
-    logger.info("NMA analysis complete!")
-    logger.info("=" * 60)
-
-
-if __name__ == "__main__":
-    main()

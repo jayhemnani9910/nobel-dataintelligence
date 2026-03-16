@@ -31,7 +31,7 @@ def __getattr__(name: str) -> ModuleType:
 
     try:
         module = import_module(f"{__name__}.{name}")
-    except Exception as exc:  # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise ImportError(
             f"Failed to import submodule '{name}'. This feature may require optional dependencies."
         ) from exc

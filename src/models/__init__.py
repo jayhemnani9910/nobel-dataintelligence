@@ -24,6 +24,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "VibroStructuralFusion": (".multimodal", "VibroStructuralFusion"),
     # Losses
     "MarginRankingLossCustom": (".losses", "MarginRankingLossCustom"),
+    "PearsonCorrelationLoss": (".losses", "PearsonCorrelationLoss"),
     "SpearmanCorrelationLoss": (".losses", "SpearmanCorrelationLoss"),
     "FocalLoss": (".losses", "FocalLoss"),
     "ContrastiveLoss": (".losses", "ContrastiveLoss"),
@@ -42,7 +43,7 @@ def __getattr__(name: str) -> Any:
     try:
         module = import_module(module_name, __name__)
         value = getattr(module, attr_name)
-    except Exception as exc:  # pragma: no cover
+    except (ImportError, AttributeError) as exc:  # pragma: no cover
         raise ImportError(f"Failed to import {__name__}.{name}") from exc
 
     globals()[name] = value

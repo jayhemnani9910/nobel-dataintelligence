@@ -21,7 +21,7 @@ from torch.utils.data import DataLoader, random_split
 from .datasets import NovozymesDataset, CAFA5Dataset, create_dataloaders
 from .models.multimodal import VibroStructuralModel
 from .training import Trainer, MetricComputer
-from .utils import batch_collate_function, get_device, set_seed
+from .utils import batch_collate_function, get_device, parse_fasta, set_seed
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,7 @@ def _ensure_dir(path: Path) -> None:
 
 
 def _load_fasta_ids(fasta_path: Path) -> list[str]:
-    ids: list[str] = []
-    with fasta_path.open("r") as f:
-        for line in f:
-            if line.startswith(">"):
-                ids.append(line[1:].split()[0])
-    return ids
+    return list(parse_fasta(str(fasta_path)).keys())
 
 
 def _write_novozymes_submission(out_path: Path, seq_ids: Iterable[str], preds: np.ndarray) -> None:

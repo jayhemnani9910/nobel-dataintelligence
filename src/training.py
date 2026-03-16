@@ -6,7 +6,6 @@ for multimodal stability and function prediction tasks.
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Dict, Tuple, Optional, Callable
 import numpy as np
@@ -57,10 +56,41 @@ class Trainer:
         
         self.best_val_loss = float('inf')
         self.best_epoch = 0
-        self.patience_counter = 0
-        
+
         logger.info(f"Trainer initialized on {device}")
-    
+
+    def _unpack_batch(self, batch):
+        """Extract graph, spectra, labels, and global_features from a batch dict."""
+        if not isinstance(batch, dict):
+            raise TypeError(f"Expected batch to be a dict, got {type(batch)}. Did you set the correct collate_fn?")
+
+        if "labels" in batch:
+            labels = batch["labels"]
+        elif "label" in batch:
+            labels = batch["label"]
+        else:
+            raise KeyError("Batch missing required key 'labels' (or legacy 'label').")
+
+        if "spectra" in batch:
+            spectra = batch["spectra"]
+        elif "spectrum" in batch:
+            spectra = batch["spectrum"]
+        else:
+            raise KeyError("Batch missing required key 'spectra' (or legacy 'spectrum').")
+
+        if "graph" not in batch:
+            raise KeyError("Batch missing required key 'graph'.")
+
+        graph = batch['graph'].to(self.device)
+        spectra = spectra.to(self.device)
+        labels = labels.to(self.device)
+
+        global_features = None
+        if 'global_features' in batch:
+            global_features = batch['global_features'].to(self.device)
+
+        return graph, spectra, labels, global_features
+
     def train_epoch(self, train_loader: DataLoader,
                    loss_fn: Callable,
                    task: str = 'novozymes') -> Dict[str, float]:
@@ -82,36 +112,8 @@ class Trainer:
         for batch_idx, batch in enumerate(train_loader):
             if batch is None:
                 continue
-            if not isinstance(batch, dict):
-                raise TypeError(f"Expected batch to be a dict, got {type(batch)}. Did you set the correct collate_fn?")
+            graph, spectra, labels, global_features = self._unpack_batch(batch)
 
-            if "labels" in batch:
-                labels = batch["labels"]
-            elif "label" in batch:  # legacy key
-                labels = batch["label"]
-            else:
-                raise KeyError("Batch missing required key 'labels' (or legacy 'label').")
-
-            if "spectra" in batch:
-                spectra = batch["spectra"]
-            elif "spectrum" in batch:  # legacy key
-                spectra = batch["spectrum"]
-            else:
-                raise KeyError("Batch missing required key 'spectra' (or legacy 'spectrum').")
-
-            if "graph" not in batch:
-                raise KeyError("Batch missing required key 'graph'.")
-
-            # Move batch to device
-            graph = batch['graph'].to(self.device)
-            spectra = spectra.to(self.device)
-            labels = labels.to(self.device)
-            
-            if 'global_features' in batch:
-                global_features = batch['global_features'].to(self.device)
-            else:
-                global_features = None
-            
             # Forward pass
             outputs = self.model(
                 graph, spectra, global_features=global_features, task=task
@@ -168,37 +170,8 @@ class Trainer:
             for batch in val_loader:
                 if batch is None:
                     continue
-                if not isinstance(batch, dict):
-                    raise TypeError(
-                        f"Expected batch to be a dict, got {type(batch)}. Did you set the correct collate_fn?"
-                    )
+                graph, spectra, labels, global_features = self._unpack_batch(batch)
 
-                if "labels" in batch:
-                    labels = batch["labels"]
-                elif "label" in batch:  # legacy key
-                    labels = batch["label"]
-                else:
-                    raise KeyError("Batch missing required key 'labels' (or legacy 'label').")
-
-                if "spectra" in batch:
-                    spectra = batch["spectra"]
-                elif "spectrum" in batch:  # legacy key
-                    spectra = batch["spectrum"]
-                else:
-                    raise KeyError("Batch missing required key 'spectra' (or legacy 'spectrum').")
-
-                if "graph" not in batch:
-                    raise KeyError("Batch missing required key 'graph'.")
-
-                graph = batch['graph'].to(self.device)
-                spectra = spectra.to(self.device)
-                labels = labels.to(self.device)
-                
-                if 'global_features' in batch:
-                    global_features = batch['global_features'].to(self.device)
-                else:
-                    global_features = None
-                
                 # Forward pass
                 outputs = self.model(
                     graph, spectra, global_features=global_features, task=task
@@ -255,45 +228,43 @@ class Trainer:
             task: 'novozymes' or 'cafa5'
         """
         logger.info(f"Training for {epochs} epochs on {self.device}")
-        
+        stopper = EarlyStopping(patience=early_stopping_patience)
+
         for epoch in range(1, epochs + 1):
             logger.info(f"\n{'='*60}")
             logger.info(f"Epoch {epoch}/{epochs}")
             logger.info(f"{'='*60}")
-            
+
             # Train
             train_metrics = self.train_epoch(train_loader, loss_fn, task=task)
             logger.info(f"Train Loss: {train_metrics['train_loss']:.4f}")
-            
+
             # Validate
             val_metrics = self.validate(val_loader, loss_fn, metric_fn, task=task)
             logger.info(f"Val Loss: {val_metrics['val_loss']:.4f}")
             if 'metric' in val_metrics:
                 logger.info(f"Metric: {val_metrics['metric']:.4f}")
-            
+
             # Learning rate scheduling
             if self.scheduler is not None:
                 self.scheduler.step(val_metrics['val_loss'])
                 logger.info(f"Learning rate: {self.optimizer.param_groups[0]['lr']:.6f}")
-            
-            # Checkpointing
-            if val_metrics['val_loss'] < self.best_val_loss:
-                self.best_val_loss = val_metrics['val_loss']
+
+            # Checkpointing and early stopping
+            val_loss = val_metrics['val_loss']
+            if val_loss < self.best_val_loss:
+                self.best_val_loss = val_loss
                 self.best_epoch = epoch
-                self.patience_counter = 0
-                
                 self.save_checkpoint(f"best_model_epoch{epoch}.pt")
-                logger.info("✓ New best validation loss!")
-            else:
-                self.patience_counter += 1
-                logger.info(f"Patience: {self.patience_counter}/{early_stopping_patience}")
-            
-            # Early stopping
-            if self.patience_counter >= early_stopping_patience:
+                logger.info("New best validation loss!")
+
+            if stopper.step(val_loss):
                 logger.info(f"\nEarly stopping at epoch {epoch}")
                 logger.info(f"Best epoch: {self.best_epoch} with loss {self.best_val_loss:.4f}")
                 break
-        
+            else:
+                logger.info(f"Patience: {stopper.counter}/{early_stopping_patience}")
+
         return self.best_val_loss
     
     def save_checkpoint(self, filename: str):
@@ -310,7 +281,7 @@ class Trainer:
     def load_checkpoint(self, filename: str):
         """Load model checkpoint."""
         path = self.checkpoint_dir / filename
-        checkpoint = torch.load(path, map_location=self.device)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=True)
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.best_epoch = checkpoint['epoch']
@@ -477,11 +448,3 @@ def create_training_config(task: str = 'novozymes') -> Dict:
     return configs.get(task, configs['novozymes'])
 
 
-def main():
-    """Test training pipeline."""
-    logger.info("Training pipeline module loaded successfully")
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

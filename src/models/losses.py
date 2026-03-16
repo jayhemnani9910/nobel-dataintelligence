@@ -55,31 +55,28 @@ class MarginRankingLossCustom(nn.Module):
         return self.loss_fn(scores_1.squeeze(), scores_2.squeeze(), targets_pt)
 
 
-class SpearmanCorrelationLoss(nn.Module):
+class PearsonCorrelationLoss(nn.Module):
     """
-    Loss based on Spearman rank correlation (differentiable approximation).
-    
-    For competitions using Spearman correlation as metric, we optimize a
-    differentiable approximation during training.
+    Loss based on Pearson correlation (differentiable).
+
+    Optimizes correlation between predictions and targets during training.
     """
-    
+
     def __init__(self):
-        """Initialize Spearman loss."""
         super().__init__()
-    
-    def forward(self, predictions: torch.Tensor, 
+
+    def forward(self, predictions: torch.Tensor,
                 targets: torch.Tensor) -> torch.Tensor:
         """
-        Compute differentiable Spearman correlation loss.
-        
+        Compute Pearson correlation loss.
+
         Args:
             predictions: Model predictions
             targets: Ground truth labels
-            
+
         Returns:
             Loss (higher = worse correlation)
         """
-        # Compute Pearson correlation as proxy (faster, differentiable)
         # Standardize
         pred_mean = predictions.mean()
         target_mean = targets.mean()
@@ -96,6 +93,10 @@ class SpearmanCorrelationLoss(nn.Module):
         loss = 1 - correlation
         
         return loss
+
+
+# Backward-compatible alias (this class was misnamed; it computes Pearson, not Spearman).
+SpearmanCorrelationLoss = PearsonCorrelationLoss
 
 
 class FocalLoss(nn.Module):
@@ -192,10 +193,8 @@ class ContrastiveLoss(nn.Module):
         # Loss for positive pairs: minimize distance
         # Loss for negative pairs: maximize distance with margin
         loss_pos = -torch.log(torch.sigmoid(similarity).diagonal() + 1e-8)
-        loss_neg = torch.log(
-            1 + torch.exp(similarity - self.margin)
-        ).sum(dim=1) - torch.log(
-            1 + torch.exp(similarity.diagonal() - self.margin)
+        loss_neg = F.softplus(similarity - self.margin).sum(dim=1) - F.softplus(
+            similarity.diagonal() - self.margin
         )
         
         loss = (loss_pos + loss_neg).mean()
@@ -292,41 +291,3 @@ class CombinedLoss(nn.Module):
         return total_loss, individual_losses
 
 
-def main():
-    """Test custom loss functions."""
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
-    
-    # Test MarginRankingLoss
-    logger.info("Testing MarginRankingLoss...")
-    loss_fn = MarginRankingLossCustom(margin=1.0)
-    scores_wt = torch.tensor([5.0, 6.0, 4.0])
-    scores_mut = torch.tensor([6.0, 5.0, 5.0])
-    targets = torch.tensor([0.0, 1.0, 1.0])  # 0=WT better, 1=mutant better
-    loss = loss_fn(scores_wt, scores_mut, targets)
-    logger.info(f"Ranking loss: {loss.item():.4f}")
-    
-    # Test SpearmanCorrelationLoss
-    logger.info("Testing SpearmanCorrelationLoss...")
-    loss_fn = SpearmanCorrelationLoss()
-    pred = torch.tensor([1.0, 2.0, 3.0, 4.0])
-    target = torch.tensor([1.5, 2.5, 2.8, 4.2])
-    loss = loss_fn(pred, target)
-    logger.info(f"Spearman loss: {loss.item():.4f}")
-    
-    # Test FocalLoss
-    logger.info("Testing FocalLoss...")
-    loss_fn = FocalLoss(alpha=0.25, gamma=2.0)
-    logits = torch.randn(4, 100)
-    targets = torch.randint(0, 2, (4, 100)).float()
-    loss = loss_fn(logits, targets)
-    logger.info(f"Focal loss: {loss.item():.4f}")
-    
-    logger.info("Custom loss functions test passed!")
-
-
-if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    main()

@@ -30,7 +30,7 @@ try:
     from src.models.gnn import ProteinGNN
 
     TORCH_GEOMETRIC_AVAILABLE = True
-except Exception:
+except ImportError:
     TORCH_GEOMETRIC_AVAILABLE = False
     Data = None  # type: ignore[assignment]
     ProteinGNN = None  # type: ignore[assignment]
@@ -408,14 +408,14 @@ class TestModelOutputShapes(unittest.TestCase):
         try:
             output = model(graph, spectra, task='novozymes')
             self.assertEqual(output.shape, (1, 1))
-        except Exception:
+        except (RuntimeError, ValueError):
             pass
-        
+
         # Test CAFA 5 output
         try:
             output = model(graph, spectra, task='cafa5')
             self.assertEqual(output.shape, (1, 50))
-        except Exception:
+        except (RuntimeError, ValueError):
             pass
 
 

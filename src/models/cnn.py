@@ -187,7 +187,7 @@ class SpectralFeatureExtractor(nn.Module):
         
         self.n_points = n_points
         self.freq_max = freq_max
-        self.freq_axis = torch.linspace(0, freq_max, n_points)
+        self.register_buffer('freq_axis', torch.linspace(0, freq_max, n_points))
     
     def forward(self, spectra: torch.Tensor) -> torch.Tensor:
         """
@@ -202,9 +202,6 @@ class SpectralFeatureExtractor(nn.Module):
         batch_size = spectra.size(0)
         device = spectra.device
         
-        # Move frequency axis to device
-        freq_axis = self.freq_axis.to(device)
-        
         features = []
         for spec in spectra:
             spec = spec.squeeze()  # Remove channel dim if present
@@ -215,14 +212,14 @@ class SpectralFeatureExtractor(nn.Module):
             # Peak height and frequency
             peak_height = torch.max(spec)
             peak_idx = torch.argmax(spec)
-            peak_freq = freq_axis[peak_idx]
+            peak_freq = self.freq_axis[peak_idx]
             
             # Centroid
-            centroid = torch.sum(freq_axis * spec) / torch.sum(spec)
+            centroid = torch.sum(self.freq_axis * spec) / torch.sum(spec)
             
             # Std dev
             std_dev = torch.sqrt(
-                torch.sum((freq_axis - centroid)**2 * spec) / torch.sum(spec)
+                torch.sum((self.freq_axis - centroid)**2 * spec) / torch.sum(spec)
             )
             
             # Number of peaks (threshold = 0.1 * max)
@@ -287,37 +284,3 @@ class MultiScaleSpectralCNN(nn.Module):
         return embedding
 
 
-def main():
-    """Test SpectralCNN module."""
-    logger.info("Testing SpectralCNN module...")
-    
-    # Create dummy spectral data
-    batch_size = 16
-    n_freqs = 1000
-    
-    # Synthetic spectra (batch_size, 1, n_freqs)
-    spectra = torch.randn(batch_size, 1, n_freqs)
-    
-    # Initialize model
-    model = SpectralCNN(input_channels=1, hidden_channels=32, output_dim=128)
-    
-    # Forward pass
-    with torch.no_grad():
-        embeddings = model(spectra)
-    
-    logger.info(f"Input shape: {spectra.shape}")
-    logger.info(f"Output embedding shape: {embeddings.shape}")
-    assert embeddings.shape == (batch_size, 128), "Unexpected output shape"
-    
-    # Test feature extraction
-    logger.info("\nTesting SpectralFeatureExtractor...")
-    feature_extractor = SpectralFeatureExtractor(n_points=n_freqs)
-    features = feature_extractor(spectra.squeeze(1))
-    logger.info(f"Extracted features shape: {features.shape}")
-    
-    logger.info("SpectralCNN tests passed!")
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

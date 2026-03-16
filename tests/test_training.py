@@ -228,6 +228,35 @@ class TestTrainer(unittest.TestCase):
         self.trainer.load_checkpoint('test.pt')
 
 
+class TestUnpackBatch(unittest.TestCase):
+    """Test Trainer._unpack_batch() validation."""
+
+    def setUp(self):
+        self.device = torch.device('cpu')
+        model = nn.Linear(10, 1).to(self.device)
+        optimizer = torch.optim.Adam(model.parameters())
+        self.trainer = Trainer(model=model, optimizer=optimizer, device=self.device)
+
+    def test_missing_labels_raises(self):
+        batch = {"graph": torch.zeros(1), "spectra": torch.zeros(1)}
+        with self.assertRaises(KeyError):
+            self.trainer._unpack_batch(batch)
+
+    def test_missing_spectra_raises(self):
+        batch = {"graph": torch.zeros(1), "labels": torch.zeros(1)}
+        with self.assertRaises(KeyError):
+            self.trainer._unpack_batch(batch)
+
+    def test_missing_graph_raises(self):
+        batch = {"spectra": torch.zeros(1), "labels": torch.zeros(1)}
+        with self.assertRaises(KeyError):
+            self.trainer._unpack_batch(batch)
+
+    def test_non_dict_raises(self):
+        with self.assertRaises(TypeError):
+            self.trainer._unpack_batch([1, 2, 3])
+
+
 class TestMetricValidation(unittest.TestCase):
     """Test metric computation edge cases."""
     
@@ -240,20 +269,20 @@ class TestMetricValidation(unittest.TestCase):
         try:
             mse = MetricComputer.mean_squared_error(preds, targets)
             self.assertTrue(np.isnan(mse) or np.isfinite(mse))
-        except:
+        except (ValueError, RuntimeError):
             pass
-    
+
     def test_metric_with_zero_variance(self):
         """Test metrics with constant targets."""
         preds = np.array([1.0, 2.0, 3.0])
         targets = np.array([2.0, 2.0, 2.0])  # Constant
-        
+
         # Spearman correlation with constant target should fail gracefully
         try:
             corr = MetricComputer.spearman_correlation(preds, targets)
             # Either returns NaN or handles it
-            self.assertTrue(np.isnan(corr) or True)
-        except:
+            self.assertTrue(np.isnan(corr) or np.isfinite(corr))
+        except (ValueError, RuntimeError):
             pass
     
     def test_metric_with_single_sample(self):

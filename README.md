@@ -2,194 +2,215 @@
 
 # Quantum Data Decoder (QDD)
 
-## Overview
+A multimodal deep learning framework for predicting protein stability and function by combining vibrational spectroscopy analysis (Normal Mode Analysis) with Graph Neural Networks and 1D CNNs.
 
-The Quantum Data Decoder is a comprehensive computational framework for predicting protein function and stability through the integration of vibrational spectroscopy, normal mode analysis (NMA), and multimodal deep learning (Graph Neural Networks + 1D CNNs).
-
-**Core Innovation:** Proteins are treated as dynamic vibrational systems. The Vibrational Density of States (VDOS) encodes functional information orthogonal to static 3D structure. We bridge physics-informed spectral simulation with deep learning to predict macroscopic observables like melting temperature ($T_m$) and catalytic function.
-
-## Project Structure
-
-```
-nobel_dataintelligence/
-├── data/
-│   ├── pdb/              # Downloaded PDB structures
-│   ├── kaggle/           # Competition datasets (Novozymes, CAFA 5)
-│   ├── spectral/         # Simulated/experimental vibrational spectra
-│   └── processed/        # Preprocessed feature tensors
-├── src/
-│   ├── data_acquisition.py       # PDB, Kaggle, spectral data fetching
-│   ├── nma_analysis.py           # Normal Mode Analysis (ANM/GNM)
-│   ├── spectral_generation.py    # Density of States synthesis
-│   ├── models/
-│   │   ├── gnn.py                # Graph Attention Network encoder
-│   │   ├── cnn.py                # 1D CNN spectral encoder
-│   │   ├── multimodal.py         # Fusion architecture
-│   │   └── losses.py             # Custom loss functions
-│   ├── utils.py                  # Utilities (constants, helpers)
-│   └── training.py               # Training loops
-├── notebooks/
-│   ├── 01_quickstart.ipynb               # Quick start and workflow overview
-│   ├── 02_nma_prototype.ipynb            # NMA workflow validation
-│   ├── 03_novozymes_execution.ipynb      # Enzyme stability prediction
-│   └── 04_cafa5_execution.ipynb          # Function prediction
-├── tests/
-│   └── test_*.py                 # Unit tests
-├── environment.yml               # Conda environment specification
-├── requirements.txt              # Pip requirements (fallback)
-└── README.md                     # This file
-```
+**Core idea:** Proteins are dynamic vibrational systems. The Vibrational Density of States (VDOS) encodes functional information orthogonal to static 3D structure. QDD bridges physics-informed spectral simulation with deep learning to predict melting temperature (Tm) and catalytic function.
 
 ## Installation
 
 ### Prerequisites
 
-- **Conda** installation (Miniconda or Anaconda)
-- **GPU with CUDA 11.8** (optional but recommended for training)
-- **~50GB disk space** for full PDB + competition datasets
-- **Kaggle API credentials** (~/.kaggle/kaggle.json) for competition data
+- **Conda** (Miniconda or Anaconda)
+- **GPU with CUDA 11.8** (optional but recommended)
+- **Kaggle API credentials** (`~/.kaggle/kaggle.json`) for competition data
 
 ### Setup
 
-1. **Clone and navigate to project:**
-   ```bash
-   cd /home/jey/projects/nobel_dataintelligence
-   ```
+```bash
+conda env create -f environment.yml
+conda activate quantum_decoder
+pip install -r requirements.txt
 
-2. **Create Conda environment:**
-   ```bash
-   conda env create -f environment.yml
-   conda activate quantum_decoder
-   ```
+# Verify
+python -c "import torch, prody; print('OK')"
+```
 
-3. **Configure Kaggle API** (if not already configured):
-   ```bash
-   # Download kaggle.json from https://www.kaggle.com/settings/account
-   mkdir -p ~/.kaggle
-   cp /path/to/kaggle.json ~/.kaggle/
-   chmod 600 ~/.kaggle/kaggle.json
-   ```
+### Run Tests
 
-4. **Verify installation:**
-   ```python
-   python -c "import prody; import torch; import rdkit; print('All imports successful!')"
-   ```
+```bash
+python -m pytest tests/ -v
+```
 
-## Key Components
+---
 
-### 1. Data Acquisition Pipeline (`src/data_acquisition.py`)
-- **PDB Mining:** Download and filter high-resolution structures ($\text{resolution} < 2.5\text{Å}$)
-- **Kaggle Integration:** Fetch Novozymes and CAFA 5 competition data
-- **Spectral Database:** Ingest RamanBioLib, Sadtler, RRUFF experimental spectra
+## Project Structure
 
-### 2. Vibrational Analysis (`src/nma_analysis.py`, `src/spectral_generation.py`)
-- **Anisotropic Network Model (ANM):** Coarse-grained elastic network with $C_\alpha$ nodes
-- **Normal Modes:** Compute first 100 non-zero modes via sparse linear algebra
-- **Vibrational Entropy:** Calculate thermodynamic feature $S_{vib}$ for each structure
-- **Density of States (DOS):** Synthesize continuous spectra using Lorentzian broadening
+```
+├── src/
+│   ├── data_acquisition.py       # PDB, Kaggle, spectral data fetching
+│   ├── nma_analysis.py           # Normal Mode Analysis (ANM/GNM)
+│   ├── spectral_generation.py    # VDOS synthesis and features
+│   ├── training.py               # Trainer, metrics, early stopping
+│   ├── datasets.py               # PyTorch dataset classes
+│   ├── cli.py                    # CLI pipelines (novozymes, cafa5)
+│   ├── utils.py                  # Constants, helpers, FASTA parsing
+│   └── models/
+│       ├── gnn.py                # Graph Attention Network (GATv2)
+│       ├── cnn.py                # 1D CNN spectral encoder
+│       ├── multimodal.py         # Fusion + task heads
+│       └── losses.py             # Ranking, focal, contrastive losses
+├── notebooks/
+│   ├── 01_quickstart.ipynb
+│   ├── 02_nma_prototype.ipynb
+│   ├── 03_novozymes_execution.ipynb
+│   └── 04_cafa5_execution.ipynb
+├── tests/
+├── docs/
+│   ├── PHASE2_REPORT.md          # Phase 2 completion details
+│   └── future/                   # VibroPredict Phase 3 planning
+├── environment.yml
+└── requirements.txt
+```
 
-### 3. Multimodal Architecture (`src/models/`)
-- **Spectral Encoder (1D CNN):** Process VDOS fingerprints
-  - Input: 1D spectrum (1000 frequency bins)
-  - Residual blocks with adaptive pooling
-  - Output: 128-dim latent vector
-  
-- **Structural Encoder (GNN):** Process 3D graph topology
-  - Graph Attention Network (GATv2)
-  - Node features: amino acid type, physicochemical properties, pLDDT scores
-  - Output: 128-dim latent vector via pooling
-  
-- **Fusion Mechanism:** Combine modalities via bilinear transformation or cross-attention
-- **Task Heads:**
-  - Novozymes: Ranking MLP + MarginRankingLoss for $\Delta\Delta G$ prediction
-  - CAFA 5: Multi-label MLP + BCEWithLogitsLoss for GO term prediction
+---
 
-### 4. Competition Workflows
-- **Novozymes Enzyme Stability:** Single-point mutation ranking via mass-perturbation NMA
-- **CAFA 5 Function Prediction:** Multi-label classification with taxon embeddings + ESM-2 ensemble
+## Architecture
 
-## Quick Start
+```
+Protein Structure
+    ├── GNN Encoder (GATv2, 3 layers)
+    │   └── Node features: AA type + hydrophobicity + pLDDT → 128-dim
+    │
+    └── NMA → VDOS → CNN Encoder (residual 1D conv)
+        └── 1000-bin spectrum → 128-dim
 
-### 1. Prototype NMA on Ubiquitin
+Fusion (bilinear / attention / concat)
+    └── Combined embedding
+
+Task Heads
+    ├── Novozymes: MLP → Tm regression
+    └── CAFA 5:    MLP → multi-label GO terms
+```
+
+---
+
+## API Reference
+
+### Model
+
 ```python
-# Run notebook: notebooks/02_nma_prototype.ipynb
+from src.models.multimodal import VibroStructuralModel
+
+model = VibroStructuralModel(
+    latent_dim=128,
+    gnn_input_dim=24,
+    fusion_type='bilinear',    # 'bilinear', 'concat', 'attention'
+    dropout=0.2,
+    num_go_terms=10000,
+)
+
+output = model(graph, spectra, global_features=None, task='novozymes')
+# Novozymes: (batch, 1)  |  CAFA 5: (batch, num_go_terms)
+```
+
+### Training
+
+```python
+from src.training import Trainer, MetricComputer, create_training_config
+
+config = create_training_config(task='novozymes')
+trainer = Trainer(model, optimizer, device='cuda')
+
+best_loss = trainer.fit(
+    train_loader, val_loader, loss_fn,
+    epochs=100,
+    metric_fn=MetricComputer.spearman_correlation,
+    early_stopping_patience=10,
+    task='novozymes',
+)
+```
+
+### Datasets
+
+```python
+from src.datasets import NovozymesDataset, CAFA5Dataset, create_dataloaders
+
+# Novozymes
+dataset = NovozymesDataset(
+    csv_file='train.csv',
+    structure_file='wildtype.pdb',
+    spectra_dir='./spectral',
+    include_updates=True,
+)
+
+# CAFA 5
+dataset = CAFA5Dataset(
+    sequences_fasta='sequences.fasta',
+    terms_csv='train_terms.csv',
+    spectra_dir='./spectral',
+    structure_dir='./structures',
+)
+
+train_loader, val_loader, test_loader = create_dataloaders(
+    train_dataset, val_dataset, batch_size=32
+)
+```
+
+### Loss Functions
+
+```python
+from src.models.losses import (
+    MarginRankingLossCustom,   # Pairwise ranking for Novozymes
+    FocalLoss,                 # Class-imbalanced multi-label
+    PearsonCorrelationLoss,    # Correlation-based loss
+    WeightedBCELoss,           # Weighted binary cross-entropy
+    ContrastiveLoss,           # Self-supervised pre-training
+)
+```
+
+### CLI
+
+```bash
+# Train + predict Novozymes
+python -m src.cli novozymes --data-dir ./data/kaggle --epochs 5
+
+# Baseline CAFA5 predictions
+python -m src.cli cafa5 --data-dir ./data/cafa5 --top-k-terms 25
+```
+
+### NMA Analysis
+
+```python
 from src.nma_analysis import ANMAnalyzer
-from prody import parsePDB
 
-pdb = parsePDB('1UBQ')  # Ubiquitin
-analyzer = ANMAnalyzer(pdb)
-modes = analyzer.compute_modes(k=10)
-vdos = analyzer.compute_vdos()
+anm = ANMAnalyzer('structure.pdb', cutoff=15.0)
+frequencies, eigenvectors = anm.compute_modes(k=100)
+vdos = anm.compute_vdos(k=100, broadening=5.0)
+s_vib = anm.compute_vibrational_entropy(k=100, temperature=298.15)
 ```
 
-### 2. Generate Spectral Data
+---
+
+## Troubleshooting
+
+**ModuleNotFoundError when importing:**
 ```python
-from src.spectral_generation import SpectralGenerator
-
-gen = SpectralGenerator()
-spectrum = gen.generate_dos(modes, broadening_factor=10)
-s_vib = gen.compute_vibrational_entropy(frequencies)
+import sys; sys.path.insert(0, './src')
 ```
 
-### 3. Train Multimodal Model
-```python
-# Run notebook: notebooks/03_novozymes_execution.ipynb
-from src.models.multimodal import Vibro_StructuralModel
-from torch.utils.data import DataLoader
+**GPU out of memory:** Reduce batch size or use `device='cpu'`.
 
-model = VibroStructuralModel(latent_dim=128)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+**Dataset loading fails:** Ensure data files are downloaded (use notebooks or `KaggleDataAcquisition`). Use absolute paths.
 
-for epoch in range(epochs):
-    for batch in train_loader:
-        loss = train_step(model, batch, optimizer)
-```
+**Training loss doesn't decrease:** Try lower learning rate (`1e-4`), check data normalization with `normalize_spectrum()`, monitor gradient norms.
+
+---
 
 ## Kaggle Competitions
 
-### Novozymes Enzyme Stability Prediction
-- **Task:** Rank single-point mutations by stability
-- **Data:** ~4,000 mutations of a wildtype enzyme
-- **Metric:** Spearman correlation of $T_m$ predictions
-- **Approach:** Mass-perturbation NMA on wildtype structure + delta-feature engineering
+| Competition | Task | Metric | Approach |
+|-------------|------|--------|----------|
+| Novozymes Enzyme Stability | Rank mutations by Tm | Spearman correlation | Mass-perturbation NMA + delta features |
+| CAFA 5 Function Prediction | Predict GO terms | Hierarchical F-max | Spectrum-function correlation + taxon embeddings |
 
-### CAFA 5 Protein Function Prediction
-- **Task:** Predict Gene Ontology (GO) terms from sequence and structure
-- **Data:** ~4M+ proteins with AlphaFold structures
-- **Metric:** Hierarchical F-max over GO hierarchy
-- **Approach:** Spectrum-function correlation + taxon embeddings + ESM-2 ensemble
+---
 
-## Scientific References
+## References
 
-1. Markelz, A. G., et al. "Protein Dynamics and Hydration Water" (Biophys. J., 2010)
-2. Nelson, K. A., & Fayer, M. D. "Ultrafast Optical Measurements" (Chem. Rev., 1996)
-3. Engel, G. S., et al. "Quantum Effects in Photosynthesis" (Nature, 2007)
-4. Bahar, I., & Rader, A. J. "Coarse-Grained Normal Mode Analysis" (Curr. Opin. Struct. Biol., 2005)
-
-## Outreach Strategy
-
-We will engage leading biophysics laboratories to validate experimental hypotheses:
-- **Dr. Andrea Markelz (Buffalo):** Anisotropic Terahertz Microspectroscopy
-- **Dr. Keith Nelson (MIT):** Ultrafast Coherent Spectroscopy
-- **Dr. Greg Engel (Chicago):** Vibronic Coupling in Photosynthesis
-
-## Citation
-
-If you use this project in your research, please cite:
-
-```
-@software{qdd2025,
-  title={Quantum Data Decoder: Vibrational Analysis for Protein Function Prediction},
-  author={[Your Name]},
-  year={2025},
-  url={https://github.com/user/nobel_dataintelligence}
-}
-```
+1. Markelz et al. "Protein Dynamics and Hydration Water" (Biophys. J., 2010)
+2. Bahar & Rader. "Coarse-Grained Normal Mode Analysis" (Curr. Opin. Struct. Biol., 2005)
+3. Engel et al. "Quantum Effects in Photosynthesis" (Nature, 2007)
 
 ## License
 
-MIT License (see LICENSE file)
-
-## Contact
-
-For questions or collaboration inquiries, reach out to the project maintainers.
+MIT License

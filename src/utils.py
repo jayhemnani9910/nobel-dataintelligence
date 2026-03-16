@@ -168,6 +168,33 @@ def compute_sequence_properties(sequence: str) -> dict:
     return properties
 
 
+def parse_fasta(path: str) -> dict:
+    """
+    Parse a FASTA file into a dict of {sequence_id: sequence}.
+
+    Args:
+        path: Path to FASTA file
+
+    Returns:
+        Dictionary mapping sequence IDs to sequences
+    """
+    sequences = {}
+    current_id = None
+    current_seq: list = []
+    with open(path, 'r') as f:
+        for line in f:
+            if line.startswith('>'):
+                if current_id:
+                    sequences[current_id] = ''.join(current_seq)
+                current_id = line[1:].split()[0]
+                current_seq = []
+            else:
+                current_seq.append(line.strip())
+    if current_id:
+        sequences[current_id] = ''.join(current_seq)
+    return sequences
+
+
 def normalize_spectrum(spectrum: np.ndarray, method: str = 'max') -> np.ndarray:
     """
     Normalize spectrum using various methods.
@@ -208,7 +235,7 @@ def batch_collate_function(batch):
     """
     try:
         from torch_geometric.data import Batch  # type: ignore
-    except Exception as exc:  # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "torch_geometric is required to collate graph batches. "
             "Install it (and its compiled dependencies) to use graph-based training."
@@ -304,17 +331,3 @@ def get_device() -> str:
         return 'cpu'
 
 
-if __name__ == "__main__":
-    # Test utilities
-    print("Testing utilities...")
-    
-    seq = "MKVLVVAT"
-    encoded = encode_sequence(seq)
-    decoded = decode_sequence(encoded)
-    print(f"Original: {seq}")
-    print(f"Decoded: {decoded}")
-    
-    props = compute_sequence_properties(seq)
-    print(f"Properties: {props}")
-    
-    print("Utilities test passed!")

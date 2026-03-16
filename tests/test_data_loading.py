@@ -59,8 +59,8 @@ class TestProteinStructureDataset(unittest.TestCase):
                 spectra_dir=str(self.spectra_dir)
             )
             self.assertEqual(len(dataset), 3)
-        except Exception:
-            # Expected if PDB files don't exist
+        except (ImportError, OSError, ValueError):
+            # Expected if PDB files don't exist or prody unavailable
             pass
     
     def test_dataset_length(self):
@@ -113,8 +113,8 @@ class TestNovozymesDataset(unittest.TestCase):
                 include_updates=False
             )
             self.assertEqual(len(dataset), 3)
-        except Exception:
-            # Expected if structure file can't be parsed
+        except (ImportError, OSError, ValueError):
+            # Expected if structure file can't be parsed or prody unavailable
             pass
 
 
@@ -162,7 +162,7 @@ class TestCAFA5Dataset(unittest.TestCase):
                 go_terms_list=['GO:0005575', 'GO:0003674', 'GO:0008150']
             )
             self.assertEqual(len(dataset), 3)
-        except Exception:
+        except (ImportError, OSError, ValueError):
             pass
     
     def test_label_format(self):
@@ -179,7 +179,7 @@ class TestCAFA5Dataset(unittest.TestCase):
             if sample and 'labels' in sample:
                 labels = sample['labels'].numpy()
                 self.assertTrue(np.all((labels == 0) | (labels == 1)))
-        except Exception:
+        except (ImportError, OSError, ValueError):
             pass
 
 

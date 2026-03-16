@@ -178,7 +178,7 @@ class SpectralGenerator:
         """
         spectrum = np.asarray(spectrum)
         total_intensity = float(np.sum(spectrum))
-        if not np.isfinite(total_intensity) or total_intensity == 0.0:
+        if not np.isfinite(total_intensity) or abs(total_intensity) < 1e-12:
             return {
                 "integral": 0.0,
                 "peak_height": 0.0,
@@ -299,70 +299,3 @@ class DeltaSpectralFeatures:
         return delta_features
 
 
-class SpectrumNormalizer:
-    """Utilities for spectrum normalization."""
-    
-    @staticmethod
-    def normalize_l2(spectrum: np.ndarray) -> np.ndarray:
-        """L2 normalization."""
-        norm = np.linalg.norm(spectrum)
-        return spectrum / norm if norm > 0 else spectrum
-    
-    @staticmethod
-    def normalize_max(spectrum: np.ndarray) -> np.ndarray:
-        """Max normalization (0 to 1)."""
-        max_val = np.max(np.abs(spectrum))
-        return spectrum / max_val if max_val > 0 else spectrum
-    
-    @staticmethod
-    def normalize_integral(spectrum: np.ndarray) -> np.ndarray:
-        """Area normalization."""
-        integral = np.sum(spectrum)
-        return spectrum / integral if integral > 0 else spectrum
-    
-    @staticmethod
-    def standardize(spectrum: np.ndarray) -> np.ndarray:
-        """Z-score standardization."""
-        mean = np.mean(spectrum)
-        std = np.std(spectrum)
-        return (spectrum - mean) / std if std > 0 else spectrum
-
-
-def main():
-    """Demonstration of spectral generation."""
-    logger.info("=" * 60)
-    logger.info("Quantum Data Decoder: Spectral Generation Module")
-    logger.info("=" * 60)
-    
-    # Initialize spectral generator
-    sg = SpectralGenerator(freq_min=0, freq_max=500, n_points=1000)
-    
-    # Simulate random protein modes for demo
-    np.random.seed(42)
-    n_modes = 50
-    frequencies = np.sort(np.random.uniform(10, 400, n_modes))
-    collectivities = np.random.uniform(0.2, 1.0, n_modes)
-    
-    # Generate spectra
-    dos_spectrum = sg.generate_dos(frequencies, broadening=5.0)
-    raman_spectrum = sg.generate_raman_spectrum(frequencies, collectivities, broadening=5.0)
-    
-    # Apply instrumental response
-    dos_broadened = sg.apply_instrumental_response(dos_spectrum, fwhm=10.0)
-    
-    # Extract features
-    features = sg.extract_spectral_features(dos_spectrum)
-    logger.info(f"Extracted features: {features}")
-    
-    # Compute correlation
-    correlation = sg.compute_spectral_correlation(dos_spectrum, raman_spectrum)
-    logger.info(f"Correlation between DOS and Raman: {correlation:.3f}")
-    
-    logger.info("\n" + "=" * 60)
-    logger.info("Spectral generation complete!")
-    logger.info("=" * 60)
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    main()

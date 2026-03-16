@@ -20,6 +20,8 @@ import pandas as pd
 import requests
 from tqdm import tqdm
 
+from src.utils import parse_fasta
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -119,7 +121,7 @@ class PDBDataAcquisition:
             else:
                 logger.warning(f"Failed to download {pdb_id}: Status {response.status_code}")
                 return None
-        except Exception as e:
+        except (requests.RequestException, OSError) as e:
             logger.error(f"Error downloading {pdb_id}: {e}")
             return None
     
@@ -159,7 +161,20 @@ class KaggleDataAcquisition:
     def __init__(self, output_dir: str = "./data/kaggle"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    def _download_kaggle_competition(self, competition_name: str) -> None:
+        """Download and extract a Kaggle competition dataset."""
+        import zipfile
+        subprocess.run(
+            ["kaggle", "competitions", "download", "-c", competition_name,
+             "-p", str(self.output_dir)],
+            check=True
+        )
+        for file in self.output_dir.glob("*.zip"):
+            with zipfile.ZipFile(file, 'r') as zip_ref:
+                zip_ref.extractall(self.output_dir)
+            file.unlink()
+
     def download_novozymes(self) -> Tuple[str, str, str]:
         """
         Download Novozymes Enzyme Stability Prediction competition data.
@@ -173,28 +188,16 @@ class KaggleDataAcquisition:
         logger.info(f"Downloading {competition_name} data...")
 
         try:
-            # Use subprocess.run instead of os.system to avoid command injection
-            subprocess.run(
-                ["kaggle", "competitions", "download", "-c", competition_name,
-                 "-p", str(self.output_dir)],
-                check=True
-            )
-            
-            # Extract if needed
-            import zipfile
-            for file in self.output_dir.glob("*.zip"):
-                with zipfile.ZipFile(file, 'r') as zip_ref:
-                    zip_ref.extractall(self.output_dir)
-                file.unlink()
-            
+            self._download_kaggle_competition(competition_name)
+
             train_csv = self.output_dir / "train.csv"
             test_csv = self.output_dir / "test.csv"
             structure_pdb = self.output_dir / "wildtype_structure_prediction_af2.pdb"
-            
+
             logger.info(f"Novozymes data downloaded to {self.output_dir}")
             return str(train_csv), str(test_csv), str(structure_pdb)
-            
-        except Exception as e:
+
+        except (subprocess.CalledProcessError, OSError) as e:
             logger.error(f"Error downloading Novozymes data: {e}")
             return None, None, None
     
@@ -211,27 +214,15 @@ class KaggleDataAcquisition:
         logger.info(f"Downloading {competition_name} data...")
 
         try:
-            # Use subprocess.run instead of os.system to avoid command injection
-            subprocess.run(
-                ["kaggle", "competitions", "download", "-c", competition_name,
-                 "-p", str(self.output_dir)],
-                check=True
-            )
-            
-            # Extract if needed
-            import zipfile
-            for file in self.output_dir.glob("*.zip"):
-                with zipfile.ZipFile(file, 'r') as zip_ref:
-                    zip_ref.extractall(self.output_dir)
-                file.unlink()
-            
+            self._download_kaggle_competition(competition_name)
+
             train_csv = self.output_dir / "train_terms.csv"
             test_sequences = self.output_dir / "test_sequences.fasta"
-            
+
             logger.info(f"CAFA 5 data downloaded to {self.output_dir}")
             return str(train_csv), str(test_sequences)
-            
-        except Exception as e:
+
+        except (subprocess.CalledProcessError, OSError) as e:
             logger.error(f"Error downloading CAFA 5 data: {e}")
             return None, None
     
@@ -265,19 +256,7 @@ class KaggleDataAcquisition:
         # Parse sequences
         sequences = {}
         if Path(train_sequences).exists():
-            with open(train_sequences, 'r') as f:
-                current_id = None
-                current_seq = []
-                for line in f:
-                    if line.startswith('>'):
-                        if current_id:
-                            sequences[current_id] = ''.join(current_seq)
-                        current_id = line[1:].split()[0]
-                        current_seq = []
-                    else:
-                        current_seq.append(line.strip())
-                if current_id:
-                    sequences[current_id] = ''.join(current_seq)
+            sequences = parse_fasta(str(train_sequences))
         
         logger.info(f"Loaded {len(sequences)} protein sequences")
         return terms_df, sequences
@@ -316,7 +295,7 @@ class SpectralDatabaseAcquisition:
             
             logger.info(f"RamanBioLib data stored at {repo_path}")
             return str(repo_path)
-        except Exception as e:
+        except (subprocess.CalledProcessError, OSError) as e:
             logger.error(f"Error downloading RamanBioLib: {e}")
             return None
     
@@ -369,41 +348,3 @@ class SpectralDatabaseAcquisition:
         return str(db_path)
 
 
-def main():
-    """Demonstration of data acquisition pipeline."""
-    logger.info("=" * 60)
-    logger.info("Quantum Data Decoder: Data Acquisition Pipeline")
-    logger.info("=" * 60)
-    
-    # 1. PDB Data Acquisition
-    logger.info("\n[Phase 1] PDB Structure Acquisition")
-    pdb_acq = PDBDataAcquisition(output_dir="./data/pdb")
-    pdb_ids = pdb_acq.query_pdb_advanced(num_structures=10)
-    logger.info(f"Found {len(pdb_ids)} candidate structures")
-    downloaded = pdb_acq.download_batch(pdb_ids, num_workers=4)
-    logger.info(f"Successfully downloaded {len(downloaded)} structures\n")
-    
-    # 2. Kaggle Data Acquisition
-    logger.info("[Phase 2] Kaggle Competition Data Acquisition")
-    kaggle_acq = KaggleDataAcquisition(output_dir="./data/kaggle")
-    
-    # Optionally download competitions (requires kaggle CLI)
-    # train_csv, test_csv, structure_pdb = kaggle_acq.download_novozymes()
-    # terms_csv, sequences_fasta = kaggle_acq.download_cafa5()
-    
-    logger.info("(Kaggle download requires kaggle CLI credentials)\n")
-    
-    # 3. Spectral Database Acquisition
-    logger.info("[Phase 3] Spectral Database Acquisition")
-    spectral_acq = SpectralDatabaseAcquisition(output_dir="./data/spectral")
-    
-    # Generate synthetic spectral database
-    spectral_acq.generate_synthetic_spectral_db(num_spectra=100)
-    
-    logger.info("\n" + "=" * 60)
-    logger.info("Data acquisition pipeline complete!")
-    logger.info("=" * 60)
-
-
-if __name__ == "__main__":
-    main()
