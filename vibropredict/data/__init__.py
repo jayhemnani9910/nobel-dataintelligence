@@ -1,12 +1,13 @@
-"""Structural bioinformatics for VibroPredict."""
+"""Data loading and standardization for VibroPredict."""
 
 from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
 _EXPORTS = {
-    "SIFTSMapper": (".sifts_mapper", "SIFTSMapper"),
-    "ESMFoldPredictor": (".esmfold_runner", "ESMFoldPredictor"),
+    "KinHubLoader": (".kinhub", "KinHubLoader"),
+    "EnzyExtractFilter": (".enzyextract", "EnzyExtractFilter"),
+    "EnzymeKineticsDataset": (".enzyme_kinetics_dataset", "EnzymeKineticsDataset"),
 }
 
 __all__ = list(_EXPORTS.keys())
