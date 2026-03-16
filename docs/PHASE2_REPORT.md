@@ -3,7 +3,7 @@
 **Project Status**: COMPLETE
 **Completion Date**: 2024
 **Total Lines of Code**: ~8,200 lines (Phase 1 + Phase 2)
-**Test Coverage**: 34 unit tests covering 80%+ of core modules
+**Test Coverage**: 103+ unit tests covering 80%+ of core modules
 
 ---
 
@@ -122,10 +122,10 @@ best_loss = trainer.fit(
 ```
 
 **Features**:
-- Epoch-level training with gradient accumulation
+- Epoch-level training with configurable loss and metrics
 - Validation after each epoch
 - Early stopping with best checkpoint saving
-- Learning rate scheduling via `ReduceLROnPlateau`
+- Learning rate scheduling (user-provided scheduler, e.g. ReduceLROnPlateau)
 - Metric tracking and logging
 - Support for both single-task and dual-task training
 

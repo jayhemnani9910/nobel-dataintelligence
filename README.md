@@ -205,6 +205,50 @@ import sys; sys.path.insert(0, './src')
 
 ---
 
+## VibroPredict (Phase 3): Enzyme Kinetics Prediction
+
+VibroPredict extends QDD to predict enzyme catalytic turnover (k_cat) using a 3-branch hybrid model:
+
+```
+Sequence ──► ProtT5 Encoder ──────► h_seq (1024-dim)  ─┐
+VDOS ──────► SpectralCNN ─────────► h_spec (128-dim)   ├─► TriModalFusion ──► MLP ──► log₁₀(k_cat)
+SMILES ────► ChemBERTa + DRFP ───► h_chem (1024-dim)  ─┘
+```
+
+### Quick Start
+
+```python
+from vibropredict.models.vibropredict_hybrid import VibroPredictHybrid
+
+model = VibroPredictHybrid(fusion_dim=512, dropout=0.2)
+logkcat, gates = model(sequences, vdos, substrate_smiles)
+```
+
+### Training with MM-Drop
+
+```python
+from vibropredict.training.trainer import TrainerWithMMDrop
+from vibropredict.training.losses import MutantRankingLoss
+
+trainer = TrainerWithMMDrop(model, optimizer, device='cuda')
+trainer.fit(train_loader, val_loader, MutantRankingLoss(), epochs=50, p_drop=0.25)
+```
+
+### Components
+
+| Module | Purpose |
+|--------|---------|
+| `vibropredict/data/` | KinHub-27k loader, EnzyExtractDB filter, standardization, dataset |
+| `vibropredict/structures/` | SIFTS mapper, ESMFold predictor, pLDDT quality control |
+| `vibropredict/spectra/` | GNM calculator, VDOS engine |
+| `vibropredict/models/` | ProtT5 encoder, ChemBERTa+DRFP encoder, 3-way fusion, hybrid model |
+| `vibropredict/training/` | MutantRankingLoss, TrainerWithMMDrop, metrics |
+| `vibropredict/evaluation/` | Ablation study, SOTA comparison, visualization |
+
+See `vibropredict/notebooks/` for full walkthroughs (05-08).
+
+---
+
 ## References
 
 1. Markelz et al. "Protein Dynamics and Hydration Water" (Biophys. J., 2010)
