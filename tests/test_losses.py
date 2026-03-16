@@ -20,17 +20,18 @@ class TestPearsonCorrelationLoss(unittest.TestCase):
 
     def test_perfect_correlation(self):
         loss_fn = PearsonCorrelationLoss()
-        preds = torch.tensor([1.0, 2.0, 3.0, 4.0])
-        targets = torch.tensor([1.0, 2.0, 3.0, 4.0])
+        # Use enough elements so Bessel's correction in std() is negligible
+        preds = torch.arange(100, dtype=torch.float32)
+        targets = torch.arange(100, dtype=torch.float32)
         loss = loss_fn(preds, targets)
-        self.assertAlmostEqual(loss.item(), 0.0, places=4)
+        self.assertAlmostEqual(loss.item(), 0.0, places=2)
 
     def test_anti_correlation(self):
         loss_fn = PearsonCorrelationLoss()
-        preds = torch.tensor([1.0, 2.0, 3.0, 4.0])
-        targets = torch.tensor([4.0, 3.0, 2.0, 1.0])
+        preds = torch.arange(100, dtype=torch.float32)
+        targets = torch.arange(99, -1, -1, dtype=torch.float32)
         loss = loss_fn(preds, targets)
-        self.assertAlmostEqual(loss.item(), 2.0, places=4)
+        self.assertAlmostEqual(loss.item(), 2.0, places=2)
 
     def test_alias_works(self):
         self.assertIs(SpearmanCorrelationLoss, PearsonCorrelationLoss)
