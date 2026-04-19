@@ -8,7 +8,6 @@ structures using GNM normal modes and spectral broadening.
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -73,9 +72,7 @@ class VibroEnzymePipeline:
         conversion_factor = 1 / (2 * np.pi * 29979.2458)
         frequencies = np.sqrt(np.maximum(eigenvalues, 0)) * conversion_factor
 
-        generator = SpectralGenerator(
-            freq_min=0, freq_max=self.freq_max, n_points=self.n_points
-        )
+        generator = SpectralGenerator(freq_min=0, freq_max=self.freq_max, n_points=self.n_points)
         vdos = generator.generate_dos(frequencies, broadening=self.broadening)
         features = generator.extract_spectral_features(vdos)
 
@@ -120,9 +117,7 @@ class VibroEnzymePipeline:
             return str(out_path)
 
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
-            futures = {
-                executor.submit(_process, p): p for p in pdb_paths
-            }
+            futures = {executor.submit(_process, p): p for p in pdb_paths}
             for i, future in enumerate(as_completed(futures), 1):
                 pdb_path = futures[future]
                 try:

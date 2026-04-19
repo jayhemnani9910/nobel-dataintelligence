@@ -7,7 +7,6 @@ with gated tri-modal fusion for enzyme k_cat prediction.
 """
 
 import logging
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -57,12 +56,8 @@ class VibroPredictHybrid(nn.Module):
         """
         super().__init__()
 
-        self.seq_encoder = ProtT5Encoder(
-            model_name=seq_model, output_dim=seq_dim
-        )
-        self.spec_encoder = SpectralCNN(
-            input_channels=1, output_dim=spec_dim
-        )
+        self.seq_encoder = ProtT5Encoder(model_name=seq_model, output_dim=seq_dim)
+        self.spec_encoder = SpectralCNN(input_channels=1, output_dim=spec_dim)
         self.chem_encoder = ChemicalEncoder(
             smiles_model=chem_model,
             fp_dim=chem_dim // 2,
@@ -114,8 +109,8 @@ class VibroPredictHybrid(nn.Module):
                 - logkcat: Predicted log(k_cat) of shape ``(batch,)``.
                 - gates: Fusion gate weights of shape ``(batch, 3)``.
         """
-        h_seq = self.seq_encoder(sequences)         # (batch, seq_dim)
-        h_spec = self.spec_encoder(vdos)             # (batch, spec_dim)
+        h_seq = self.seq_encoder(sequences)  # (batch, seq_dim)
+        h_spec = self.spec_encoder(vdos)  # (batch, spec_dim)
 
         if drop_spectral:
             h_spec = torch.zeros_like(h_spec)
@@ -123,6 +118,6 @@ class VibroPredictHybrid(nn.Module):
         h_chem = self.chem_encoder(substrate_smiles, product_smiles)  # (batch, chem_dim)
 
         fused, gates = self.fusion(h_seq, h_spec, h_chem)  # (batch, fusion_dim), (batch, 3)
-        logkcat = self.regressor(fused).squeeze(-1)          # (batch,)
+        logkcat = self.regressor(fused).squeeze(-1)  # (batch,)
 
         return logkcat, gates

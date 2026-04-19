@@ -15,13 +15,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 from vibropredict.training.losses import MutantRankingLoss
 from vibropredict.training.metrics import (
-    rmse,
-    r_squared,
     pearson_correlation,
+    r_squared,
+    rmse,
     spearman_correlation,
 )
 
@@ -72,9 +72,7 @@ class TestTriModalFusionMock(unittest.TestCase):
         _, gates = model(h_seq, h_spec, h_chem)
         sums = gates.sum(dim=-1)
 
-        np.testing.assert_array_almost_equal(
-            sums.detach().numpy(), np.ones(8), decimal=5
-        )
+        np.testing.assert_array_almost_equal(sums.detach().numpy(), np.ones(8), decimal=5)
 
 
 class TestMutantRankingLoss(unittest.TestCase):
@@ -103,6 +101,7 @@ class TestMutantRankingLoss(unittest.TestCase):
 
         # With ranking term, loss should differ from pure MSE
         self.assertIsInstance(loss_with_pairs.item(), float)
+        self.assertNotAlmostEqual(loss_with_pairs.item(), loss_no_pairs.item(), places=6)
         self.assertGreater(loss_with_pairs.item(), 0)
 
     def test_loss_is_differentiable(self):
@@ -171,18 +170,16 @@ class TestTrainerUnpackBatch(unittest.TestCase):
 
         model = nn.Linear(10, 1)
         optimizer = torch.optim.Adam(model.parameters())
-        self.trainer = TrainerWithMMDrop(
-            model=model, optimizer=optimizer, device='cpu'
-        )
+        self.trainer = TrainerWithMMDrop(model=model, optimizer=optimizer, device="cpu")
 
     def test_unpack_valid_batch(self):
         """Test _unpack_batch returns correct tuple from valid batch."""
         batch = {
-            'sequences': ['MKTIIALSYIF', 'ACDEFGHIK'],
-            'vdos': torch.randn(2, 1, 1000),
-            'substrate_smiles': ['CC', 'CCO'],
-            'product_smiles': ['C=O', 'CC(=O)O'],
-            'log_kcat': torch.tensor([1.5, 2.3]),
+            "sequences": ["MKTIIALSYIF", "ACDEFGHIK"],
+            "vdos": torch.randn(2, 1, 1000),
+            "substrate_smiles": ["CC", "CCO"],
+            "product_smiles": ["C=O", "CC(=O)O"],
+            "log_kcat": torch.tensor([1.5, 2.3]),
         }
         sequences, vdos, sub_smi, prod_smi, log_kcat = self.trainer._unpack_batch(batch)
 
@@ -194,21 +191,21 @@ class TestTrainerUnpackBatch(unittest.TestCase):
 
     def test_unpack_missing_key_raises(self):
         """Test _unpack_batch raises on missing required key."""
-        batch = {'sequences': ['A'], 'vdos': torch.zeros(1, 1, 10)}
+        batch = {"sequences": ["A"], "vdos": torch.zeros(1, 1, 10)}
         with self.assertRaises(KeyError):
             self.trainer._unpack_batch(batch)
 
     def test_unpack_optional_product_smiles(self):
         """Test _unpack_batch returns None for missing product_smiles."""
         batch = {
-            'sequences': ['MKT'],
-            'vdos': torch.randn(1, 1, 100),
-            'substrate_smiles': ['CC'],
-            'log_kcat': torch.tensor([1.0]),
+            "sequences": ["MKT"],
+            "vdos": torch.randn(1, 1, 100),
+            "substrate_smiles": ["CC"],
+            "log_kcat": torch.tensor([1.0]),
         }
         _, _, _, prod_smi, _ = self.trainer._unpack_batch(batch)
         self.assertIsNone(prod_smi)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

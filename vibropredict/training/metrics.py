@@ -6,7 +6,6 @@ on log(k_cat) prediction tasks.
 """
 
 import logging
-from typing import Dict
 
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
@@ -105,7 +104,7 @@ def top_k_ranking_accuracy(
 def compute_all_metrics(
     predictions: np.ndarray,
     targets: np.ndarray,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """
     Compute all regression and ranking metrics.
 
@@ -117,9 +116,9 @@ def compute_all_metrics(
         Dictionary with keys: rmse, r_squared, pearson, spearman, top_k_accuracy.
     """
     return {
-        'rmse': rmse(predictions, targets),
-        'r_squared': r_squared(predictions, targets),
-        'pearson': pearson_correlation(predictions, targets),
-        'spearman': spearman_correlation(predictions, targets),
-        'top_k_accuracy': top_k_ranking_accuracy(predictions, targets),
+        "rmse": rmse(predictions, targets),
+        "r_squared": r_squared(predictions, targets),
+        "pearson": pearson_correlation(predictions, targets),
+        "spearman": spearman_correlation(predictions, targets),
+        "top_k_accuracy": top_k_ranking_accuracy(predictions, targets),
     }

@@ -14,13 +14,13 @@ __version__ = "0.1.0"
 __author__ = "Quantum Data Decoder Team"
 
 __all__ = [
-    'data_acquisition',
-    'nma_analysis',
-    'spectral_generation',
-    'utils',
-    'datasets',
-    'training',
-    'models',
+    "data_acquisition",
+    "nma_analysis",
+    "spectral_generation",
+    "utils",
+    "datasets",
+    "training",
+    "models",
 ]
 
 

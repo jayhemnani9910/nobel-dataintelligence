@@ -6,7 +6,6 @@ with learned per-residue attention pooling.
 """
 
 import logging
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -53,9 +52,7 @@ class ProtT5Encoder(nn.Module):
         from transformers import T5EncoderModel, T5Tokenizer  # type: ignore
 
         logger.info(f"Loading ProtT5 model: {self.model_name}")
-        self._tokenizer = T5Tokenizer.from_pretrained(
-            self.model_name, do_lower_case=False
-        )
+        self._tokenizer = T5Tokenizer.from_pretrained(self.model_name, do_lower_case=False)
         self._encoder = T5EncoderModel.from_pretrained(self.model_name)
         self._encoder = self._encoder.to(device)
         self._encoder.eval()

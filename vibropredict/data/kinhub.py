@@ -6,14 +6,13 @@ Handles deduplication of substrate-enzyme pairs via geometric mean aggregation.
 """
 
 import logging
-from typing import List
 
 import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_COLUMNS: List[str] = ["uniprot_id", "k_cat", "substrate_smiles"]
+REQUIRED_COLUMNS: list[str] = ["uniprot_id", "k_cat", "substrate_smiles"]
 
 
 class KinHubLoader:
@@ -46,9 +45,7 @@ class KinHubLoader:
         df = pd.read_csv(self.csv_path)
         missing = set(REQUIRED_COLUMNS) - set(df.columns)
         if missing:
-            raise ValueError(
-                f"KinHub CSV is missing required columns: {sorted(missing)}"
-            )
+            raise ValueError(f"KinHub CSV is missing required columns: {sorted(missing)}")
         logger.info(f"Loaded {len(df)} rows from {self.csv_path}")
         return df
 
@@ -99,9 +96,11 @@ class KinHubLoader:
         dup_df = df[duplicated_mask].copy()
 
         # For each group, keep first row but replace k_cat with geometric mean
-        merged = dup_df.groupby(group_cols, sort=False).agg(
-            k_cat_geomean=("k_cat", _geometric_mean)
-        ).reset_index()
+        merged = (
+            dup_df.groupby(group_cols, sort=False)
+            .agg(k_cat_geomean=("k_cat", _geometric_mean))
+            .reset_index()
+        )
 
         # Merge back non-numeric columns from the first occurrence
         first_rows = dup_df.drop_duplicates(subset=group_cols, keep="first").copy()

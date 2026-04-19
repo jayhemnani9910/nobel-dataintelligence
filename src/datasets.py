@@ -6,12 +6,11 @@ Implements efficient data loading for structural and spectral data.
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,9 @@ def _normalize_cafa_terms_df(df: pd.DataFrame) -> pd.DataFrame:
     if {"target_id", "go_id"}.issubset(df.columns):
         return df[["target_id", "go_id"]].copy()
     if {"protein_id", "go_term"}.issubset(df.columns):
-        out = df[["protein_id", "go_term"]].rename(columns={"protein_id": "target_id", "go_term": "go_id"})
+        out = df[["protein_id", "go_term"]].rename(
+            columns={"protein_id": "target_id", "go_term": "go_id"}
+        )
         return out
     if {"protein_id", "go_id"}.issubset(df.columns):
         out = df[["protein_id", "go_id"]].rename(columns={"protein_id": "target_id"})
@@ -73,19 +74,22 @@ def _normalize_cafa_terms_df(df: pd.DataFrame) -> pd.DataFrame:
 class ProteinStructureDataset(Dataset):
     """
     Dataset for protein structures with spectral data.
-    
+
     Loads PDB structures and corresponding vibrational spectra
     for training multimodal models.
     """
-    
-    def __init__(self, pdb_files: List[str],
-                 spectra_dir: str,
-                 metadata_df: Optional[pd.DataFrame] = None,
-                 precompute_graphs: bool = False,
-                 cache_spectra: bool = True):
+
+    def __init__(
+        self,
+        pdb_files: list[str],
+        spectra_dir: str,
+        metadata_df: pd.DataFrame | None = None,
+        precompute_graphs: bool = False,
+        cache_spectra: bool = True,
+    ):
         """
         Initialize dataset.
-        
+
         Args:
             pdb_files: List of PDB file paths
             spectra_dir: Directory containing spectral data
@@ -97,29 +101,29 @@ class ProteinStructureDataset(Dataset):
         self.spectra_dir = Path(spectra_dir)
         self.metadata_df = metadata_df
         self.precompute_graphs = precompute_graphs
-        
+
         # Spectral cache
         self.spectra_cache = {} if cache_spectra else None
-        
+
         logger.info(f"Dataset initialized with {len(pdb_files)} structures")
-    
+
     def __len__(self) -> int:
         return len(self.pdb_files)
-    
-    def __getitem__(self, idx: int) -> Dict:
+
+    def __getitem__(self, idx: int) -> dict:
         """Load a single sample."""
         pr = _require_prody()
 
         pdb_file = self.pdb_files[idx]
         pdb_id = Path(pdb_file).stem.lower()
-        
+
         # Load structure
         try:
             structure = pr.parsePDB(pdb_file)
         except Exception as e:
             logger.warning(f"Failed to load {pdb_file}: {e}")
             return None
-        
+
         # Load spectrum
         spectrum_file = self.spectra_dir / f"{pdb_id}_spectrum.npy"
         if spectrum_file.exists():
@@ -127,68 +131,66 @@ class ProteinStructureDataset(Dataset):
         else:
             logger.warning(f"Spectrum not found for {pdb_id}")
             spectrum = np.zeros(1000)
-        
+
         # Load metadata if available
         label = None
         global_features = None
         if self.metadata_df is not None:
-            row = self.metadata_df[self.metadata_df['pdb_id'] == pdb_id]
+            row = self.metadata_df[self.metadata_df["pdb_id"] == pdb_id]
             if not row.empty:
-                if 'label' in row.columns:
-                    label = float(row['label'].values[0])
-                if 'entropy' in row.columns and 'sasa' in row.columns and 'zpe' in row.columns:
-                    global_features = np.array([
-                        row['entropy'].values[0],
-                        row['sasa'].values[0],
-                        row['zpe'].values[0]
-                    ], dtype=np.float32)
-        
+                if "label" in row.columns:
+                    label = float(row["label"].values[0])
+                if "entropy" in row.columns and "sasa" in row.columns and "zpe" in row.columns:
+                    global_features = np.array(
+                        [row["entropy"].values[0], row["sasa"].values[0], row["zpe"].values[0]],
+                        dtype=np.float32,
+                    )
+
         # Construct graph (if not precomputed)
         GraphConstruction = _get_graph_construction()
-        
-        ca = structure.select('ca')
+
+        ca = structure.select("ca")
         if ca is None:
             logger.warning(f"No C-alpha atoms in {pdb_file}")
             return None
-        
+
         coords = torch.tensor(ca.getCoords(), dtype=torch.float32)
         sequence = pr.getSequence(ca)
         features = GraphConstruction.construct_residue_features(sequence)
-        
+
         graph = GraphConstruction.construct_ca_graph(
             coords, features, distance_cutoff=10.0, edge_features=True
         )
-        
+
         # Prepare output
         sample = {
-            'pdb_id': pdb_id,
-            'graph': graph,
-            'spectra': torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
+            "pdb_id": pdb_id,
+            "graph": graph,
+            "spectra": torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
         }
-        
+
         if label is not None:
-            sample['labels'] = torch.tensor(label, dtype=torch.float32)
-        
+            sample["labels"] = torch.tensor(label, dtype=torch.float32)
+
         if global_features is not None:
-            sample['global_features'] = torch.tensor(global_features, dtype=torch.float32)
-        
+            sample["global_features"] = torch.tensor(global_features, dtype=torch.float32)
+
         return sample
 
 
 class NovozymesDataset(Dataset):
     """
     Specialized dataset for Novozymes enzyme stability prediction.
-    
+
     Handles mutation data and creates ranking pairs.
     """
-    
-    def __init__(self, csv_file: str,
-                 structure_file: str,
-                 spectra_dir: str,
-                 include_updates: bool = True):
+
+    def __init__(
+        self, csv_file: str, structure_file: str, spectra_dir: str, include_updates: bool = True
+    ):
         """
         Initialize Novozymes dataset.
-        
+
         Args:
             csv_file: Path to train.csv
             structure_file: Path to wildtype structure PDB
@@ -197,18 +199,18 @@ class NovozymesDataset(Dataset):
         """
         # Load CSV
         self.df = pd.read_csv(csv_file)
-        
+
         # Apply updates if available
         if include_updates:
-            updates_file = Path(csv_file).parent / 'train_updates.csv'
+            updates_file = Path(csv_file).parent / "train_updates.csv"
             if updates_file.exists():
                 updates = pd.read_csv(updates_file)
                 logger.info(f"Applying {len(updates)} updates to training data")
                 # Update rows
-                for idx, row in updates.iterrows():
-                    mask = self.df['seq_id'] == row['seq_id']
+                for _, row in updates.iterrows():
+                    mask = self.df["seq_id"] == row["seq_id"]
                     self.df.loc[mask] = row
-        
+
         # Load structure
         self.structure = None
         self._wt_ca_coords = None
@@ -219,37 +221,39 @@ class NovozymesDataset(Dataset):
             if ca is not None:
                 self._wt_ca_coords = torch.tensor(ca.getCoords(), dtype=torch.float32)
         except Exception as exc:
-            logger.warning(f"Failed to parse Novozymes wildtype structure '{structure_file}': {exc}")
+            logger.warning(
+                f"Failed to parse Novozymes wildtype structure '{structure_file}': {exc}"
+            )
         self.spectra_dir = Path(spectra_dir)
         self._wt_spectrum_cache = None
-        
+
         logger.info(f"Novozymes dataset: {len(self.df)} mutations")
-    
+
     def __len__(self) -> int:
         return len(self.df)
-    
-    def __getitem__(self, idx: int) -> Dict:
+
+    def __getitem__(self, idx: int) -> dict:
         """Load mutation data."""
         row = self.df.iloc[idx]
-        
+
         # Extract info
-        seq_id = row['seq_id']
-        sequence = row['protein_sequence']
-        tm = float(row['tm']) if 'tm' in row and not pd.isna(row['tm']) else None
-        pH = float(row['pH'])
-        
+        seq_id = row["seq_id"]
+        sequence = row["protein_sequence"]
+        tm = float(row["tm"]) if "tm" in row and not pd.isna(row["tm"]) else None
+        pH = float(row["pH"])
+
         # Get wildtype spectrum (or compute delta)
         if self._wt_spectrum_cache is None:
-            wt_spectrum_file = self.spectra_dir / 'wt_spectrum.npy'
+            wt_spectrum_file = self.spectra_dir / "wt_spectrum.npy"
             if wt_spectrum_file.exists():
                 self._wt_spectrum_cache = np.load(wt_spectrum_file)
             else:
                 self._wt_spectrum_cache = np.zeros(1000)
         spectrum = self._wt_spectrum_cache
-        
+
         # Construct graph from sequence
         GraphConstruction = _get_graph_construction()
-        
+
         features = GraphConstruction.construct_residue_features(sequence)
         # Use wildtype coordinates when compatible; otherwise fall back to deterministic pseudo-coordinates.
         if self._wt_ca_coords is not None and len(sequence) == self._wt_ca_coords.size(0):
@@ -257,48 +261,51 @@ class NovozymesDataset(Dataset):
         else:
             # Deterministic coordinates based on index to avoid randomness in data loading.
             coords = torch.stack(
-                [torch.arange(len(sequence), dtype=torch.float32),
-                 torch.zeros(len(sequence), dtype=torch.float32),
-                 torch.zeros(len(sequence), dtype=torch.float32)],
-                dim=1
+                [
+                    torch.arange(len(sequence), dtype=torch.float32),
+                    torch.zeros(len(sequence), dtype=torch.float32),
+                    torch.zeros(len(sequence), dtype=torch.float32),
+                ],
+                dim=1,
             )
-        
-        graph = GraphConstruction.construct_ca_graph(
-            coords, features, distance_cutoff=10.0
-        )
-        
+
+        graph = GraphConstruction.construct_ca_graph(coords, features, distance_cutoff=10.0)
+
         # Global features: [entropy, pH, dummy_sasa]
         global_features = torch.tensor([0.0, pH, 0.0], dtype=torch.float32)
-        
+
         sample = {
-            'seq_id': seq_id,
-            'graph': graph,
-            'spectra': torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
-            'global_features': global_features,
-            'sequence': sequence,
+            "seq_id": seq_id,
+            "graph": graph,
+            "spectra": torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
+            "global_features": global_features,
+            "sequence": sequence,
         }
 
         if tm is not None:
-            sample['labels'] = torch.tensor(tm, dtype=torch.float32)
-        
+            sample["labels"] = torch.tensor(tm, dtype=torch.float32)
+
         return sample
 
 
 class CAFA5Dataset(Dataset):
     """
     Specialized dataset for CAFA 5 protein function prediction.
-    
+
     Handles multi-label GO term prediction.
     """
-    
-    def __init__(self, sequences_fasta: str,
-                 terms_csv: Optional[str],
-                 spectra_dir: str,
-                 structure_dir: str,
-                 go_terms_list: Optional[List[str]] = None):
+
+    def __init__(
+        self,
+        sequences_fasta: str,
+        terms_csv: str | None,
+        spectra_dir: str,
+        structure_dir: str,
+        go_terms_list: list[str] | None = None,
+    ):
         """
         Initialize CAFA 5 dataset.
-        
+
         Args:
             sequences_fasta: Path to FASTA file with sequences
             terms_csv: Path to train_terms.csv with GO labels
@@ -309,25 +316,25 @@ class CAFA5Dataset(Dataset):
         # Load sequences
         self.sequences = {}
         self._load_fasta(sequences_fasta)
-        
+
         # Load GO term labels
         if terms_csv is None:
             self.terms_df = pd.DataFrame(columns=["target_id", "go_id"])
         else:
             raw_terms_df = pd.read_csv(terms_csv)
             self.terms_df = _normalize_cafa_terms_df(raw_terms_df)
-        
+
         # Load GO terms list
         if go_terms_list is None:
-            self.go_terms = sorted(self.terms_df['go_id'].unique())
+            self.go_terms = sorted(self.terms_df["go_id"].unique())
         else:
             self.go_terms = go_terms_list
-        
+
         self.go_to_idx = {go: i for i, go in enumerate(self.go_terms)}
-        
+
         self.spectra_dir = Path(spectra_dir)
         self.structure_dir = Path(structure_dir)
-        
+
         self._protein_ids = list(self.sequences.keys())
         logger.info(f"CAFA5 dataset: {len(self.sequences)} proteins, {len(self.go_terms)} GO terms")
 
@@ -338,25 +345,25 @@ class CAFA5Dataset(Dataset):
         except ImportError:  # pragma: no cover
             from utils import parse_fasta  # type: ignore
         self.sequences = parse_fasta(fasta_file)
-    
+
     def __len__(self) -> int:
         return len(self.sequences)
-    
-    def __getitem__(self, idx: int) -> Dict:
+
+    def __getitem__(self, idx: int) -> dict:
         """Load protein (and optionally GO term labels)."""
         protein_id = self._protein_ids[idx]
         sequence = self.sequences[protein_id]
-        
+
         # Load spectrum
         spectrum_file = self.spectra_dir / f"{protein_id}_spectrum.npy"
         if spectrum_file.exists():
             spectrum = np.load(spectrum_file)
         else:
             spectrum = np.zeros(1000)
-        
+
         # Construct graph
         GraphConstruction = _get_graph_construction()
-        
+
         features = GraphConstruction.construct_residue_features(sequence)
         # Deterministic pseudo-coordinates (fallback when no structure is available).
         coords = torch.stack(
@@ -367,39 +374,39 @@ class CAFA5Dataset(Dataset):
             ],
             dim=1,
         )
-        
-        graph = GraphConstruction.construct_ca_graph(
-            coords, features, distance_cutoff=10.0
-        )
-        
+
+        graph = GraphConstruction.construct_ca_graph(coords, features, distance_cutoff=10.0)
+
         sample = {
-            'protein_id': protein_id,
-            'graph': graph,
-            'spectra': torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
-            'sequence': sequence,
+            "protein_id": protein_id,
+            "graph": graph,
+            "spectra": torch.tensor(spectrum, dtype=torch.float32).unsqueeze(0),
+            "sequence": sequence,
         }
 
         # Add labels only when a terms file was provided.
         if not self.terms_df.empty:
-            go_labels = self.terms_df[self.terms_df['target_id'] == protein_id]['go_id'].values
+            go_labels = self.terms_df[self.terms_df["target_id"] == protein_id]["go_id"].values
             label_vector = np.zeros(len(self.go_terms), dtype=np.float32)
             for go in go_labels:
                 if go in self.go_to_idx:
                     label_vector[self.go_to_idx[go]] = 1.0
-            sample['labels'] = torch.tensor(label_vector, dtype=torch.float32)
-        
+            sample["labels"] = torch.tensor(label_vector, dtype=torch.float32)
+
         return sample
 
 
-def create_dataloaders(train_dataset: Dataset,
-                      val_dataset: Dataset,
-                      test_dataset: Optional[Dataset] = None,
-                      batch_size: int = 32,
-                      num_workers: int = 4,
-                      shuffle_train: bool = True) -> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
+def create_dataloaders(
+    train_dataset: Dataset,
+    val_dataset: Dataset,
+    test_dataset: Dataset | None = None,
+    batch_size: int = 32,
+    num_workers: int = 4,
+    shuffle_train: bool = True,
+) -> tuple[DataLoader, DataLoader, DataLoader | None]:
     """
     Create DataLoaders for train/val/test splits.
-    
+
     Args:
         train_dataset: Training dataset
         val_dataset: Validation dataset
@@ -407,12 +414,12 @@ def create_dataloaders(train_dataset: Dataset,
         batch_size: Batch size
         num_workers: Number of workers for data loading
         shuffle_train: Whether to shuffle training data
-        
+
     Returns:
         Tuple of (train_loader, val_loader, test_loader)
     """
     batch_collate_function = _get_batch_collate_function()
-    
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
@@ -421,7 +428,7 @@ def create_dataloaders(train_dataset: Dataset,
         collate_fn=batch_collate_function,
         pin_memory=True,
     )
-    
+
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
@@ -430,7 +437,7 @@ def create_dataloaders(train_dataset: Dataset,
         collate_fn=batch_collate_function,
         pin_memory=True,
     )
-    
+
     test_loader = None
     if test_dataset is not None:
         test_loader = DataLoader(
@@ -441,7 +448,5 @@ def create_dataloaders(train_dataset: Dataset,
             collate_fn=batch_collate_function,
             pin_memory=True,
         )
-    
+
     return train_loader, val_loader, test_loader
-
-

@@ -6,7 +6,6 @@ protein structures, and extracts thermodynamic features using ANM analysis.
 """
 
 import logging
-from typing import Optional
 
 import numpy as np
 
@@ -58,7 +57,7 @@ class GNMCalculator:
         pr = _require_prody()
 
         structure = pr.parsePDB(pdb_path)
-        ca_atoms = structure.select('ca')
+        ca_atoms = structure.select("ca")
         if ca_atoms is None:
             raise ValueError(f"No C-alpha atoms found in {pdb_path}")
 
@@ -119,9 +118,7 @@ class GNMCalculator:
         logger.info(f"Computed {len(nonzero_idx)} non-zero GNM modes from coords")
         return eigenvalues[nonzero_idx], eigenvectors[:, nonzero_idx]
 
-    def extract_thermodynamic_features(
-        self, pdb_path: str, k: int = 100
-    ) -> dict:
+    def extract_thermodynamic_features(self, pdb_path: str, k: int = 100) -> dict:
         """
         Extract thermodynamic features from a PDB structure using ANM analysis.
 
@@ -149,9 +146,9 @@ class GNMCalculator:
         collectivity_mode0 = analyzer.get_mode_collectivity(mode_idx=0)
 
         features = {
-            'vibrational_entropy': vibrational_entropy,
-            'mean_bfactor': mean_bfactor,
-            'collectivity_mode0': collectivity_mode0,
+            "vibrational_entropy": vibrational_entropy,
+            "mean_bfactor": mean_bfactor,
+            "collectivity_mode0": collectivity_mode0,
         }
 
         logger.info(

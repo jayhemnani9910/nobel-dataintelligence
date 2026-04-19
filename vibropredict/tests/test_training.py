@@ -13,7 +13,7 @@ import unittest
 import numpy as np
 import torch
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 from vibropredict.training.losses import MutantRankingLoss
 from vibropredict.training.metrics import compute_all_metrics, top_k_ranking_accuracy
@@ -97,7 +97,7 @@ class TestComputeAllMetrics(unittest.TestCase):
 
         metrics = compute_all_metrics(preds, targets)
 
-        expected_keys = {'rmse', 'r_squared', 'pearson', 'spearman', 'top_k_accuracy'}
+        expected_keys = {"rmse", "r_squared", "pearson", "spearman", "top_k_accuracy"}
         self.assertEqual(set(metrics.keys()), expected_keys)
 
     def test_all_values_are_finite(self):
@@ -116,10 +116,10 @@ class TestComputeAllMetrics(unittest.TestCase):
         data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         metrics = compute_all_metrics(data, data)
 
-        self.assertAlmostEqual(metrics['rmse'], 0.0, places=5)
-        self.assertAlmostEqual(metrics['r_squared'], 1.0, places=5)
-        self.assertAlmostEqual(metrics['pearson'], 1.0, places=5)
-        self.assertAlmostEqual(metrics['spearman'], 1.0, places=5)
+        self.assertAlmostEqual(metrics["rmse"], 0.0, places=5)
+        self.assertAlmostEqual(metrics["r_squared"], 1.0, places=5)
+        self.assertAlmostEqual(metrics["pearson"], 1.0, places=5)
+        self.assertAlmostEqual(metrics["spearman"], 1.0, places=5)
 
 
 class TestTopKRankingAccuracy(unittest.TestCase):
@@ -161,5 +161,5 @@ class TestTopKRankingAccuracy(unittest.TestCase):
         self.assertAlmostEqual(accuracy, 1.0, places=5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

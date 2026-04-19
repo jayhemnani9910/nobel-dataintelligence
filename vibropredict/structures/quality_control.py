@@ -6,7 +6,6 @@ structures by quality thresholds, and flagging disordered regions.
 """
 
 import logging
-from typing import List, Tuple
 
 import numpy as np
 
@@ -26,9 +25,9 @@ def parse_plddt_from_pdb(pdb_path: str) -> np.ndarray:
     Returns:
         1-D array of pLDDT values, one per CA atom.
     """
-    plddt_values: List[float] = []
+    plddt_values: list[float] = []
 
-    with open(pdb_path, "r") as fh:
+    with open(pdb_path) as fh:
         for line in fh:
             if line.startswith("ATOM") and line[12:16].strip() == "CA":
                 try:
@@ -80,9 +79,7 @@ def filter_by_quality(
     return passed
 
 
-def flag_disordered_regions(
-    plddt: np.ndarray, threshold: float = 50.0
-) -> List[Tuple[int, int]]:
+def flag_disordered_regions(plddt: np.ndarray, threshold: float = 50.0) -> list[tuple[int, int]]:
     """
     Identify contiguous regions with low pLDDT (likely disordered).
 
@@ -98,7 +95,7 @@ def flag_disordered_regions(
         return []
 
     low_mask = plddt < threshold
-    regions: List[Tuple[int, int]] = []
+    regions: list[tuple[int, int]] = []
     in_region = False
     start = 0
 
@@ -115,7 +112,5 @@ def flag_disordered_regions(
         regions.append((start, len(plddt) - 1))
 
     if regions:
-        logger.info(
-            f"Found {len(regions)} disordered region(s) below pLDDT {threshold}"
-        )
+        logger.info(f"Found {len(regions)} disordered region(s) below pLDDT {threshold}")
     return regions

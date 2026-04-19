@@ -7,7 +7,6 @@ Hugging Face transformers library with lazy loading and batch support.
 
 import logging
 from pathlib import Path
-from typing import List, Optional
 
 import numpy as np
 
@@ -35,7 +34,6 @@ class ESMFoldPredictor:
 
     def _load_model(self):
         """Load ESMForProteinFolding and its tokenizer from transformers."""
-        import torch  # noqa: F811
         from transformers import AutoTokenizer, EsmForProteinFolding  # type: ignore
 
         logger.info("Loading ESMFold model (this may take a moment)...")
@@ -60,9 +58,7 @@ class ESMFoldPredictor:
         if self._model is None:
             self._load_model()
 
-        inputs = self._tokenizer(
-            [sequence], return_tensors="pt", add_special_tokens=False
-        )
+        inputs = self._tokenizer([sequence], return_tensors="pt", add_special_tokens=False)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         with torch.no_grad():
@@ -72,9 +68,7 @@ class ESMFoldPredictor:
         pdb_string = self._model.output_to_pdb(outputs)[0]
         return pdb_string
 
-    def predict_batch(
-        self, sequences: List[str], output_dir: str
-    ) -> List[str]:
+    def predict_batch(self, sequences: list[str], output_dir: str) -> list[str]:
         """
         Predict structures for multiple sequences and save to disk.
 
@@ -87,7 +81,7 @@ class ESMFoldPredictor:
         """
         out_path = Path(output_dir)
         out_path.mkdir(parents=True, exist_ok=True)
-        paths: List[str] = []
+        paths: list[str] = []
 
         for idx, seq in enumerate(sequences):
             pdb_string = self.predict_structure(seq)
@@ -112,7 +106,7 @@ class ESMFoldPredictor:
         Returns:
             True if mean pLDDT exceeds the threshold.
         """
-        plddt_values: List[float] = []
+        plddt_values: list[float] = []
 
         for line in pdb_string.splitlines():
             if line.startswith("ATOM") and line[12:16].strip() == "CA":

@@ -77,14 +77,10 @@ class TriModalFusion(nn.Module):
         concat = torch.cat([h_seq, h_spec, h_chem], dim=-1)
         gates = torch.softmax(self.gate_net(concat), dim=-1)  # (batch, 3)
 
-        proj_seq = self.proj_seq(h_seq)    # (batch, output_dim)
+        proj_seq = self.proj_seq(h_seq)  # (batch, output_dim)
         proj_spec = self.proj_spec(h_spec)  # (batch, output_dim)
         proj_chem = self.proj_chem(h_chem)  # (batch, output_dim)
 
-        fused = (
-            gates[:, 0:1] * proj_seq
-            + gates[:, 1:2] * proj_spec
-            + gates[:, 2:3] * proj_chem
-        )
+        fused = gates[:, 0:1] * proj_seq + gates[:, 1:2] * proj_spec + gates[:, 2:3] * proj_chem
 
         return self.dropout(fused), gates
