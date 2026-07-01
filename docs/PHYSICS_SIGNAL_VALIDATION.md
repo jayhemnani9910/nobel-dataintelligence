@@ -81,9 +81,10 @@ The n=8 test above was underpowered, so we built the curated set it called for:
 **27 thermophile/mesophile enzyme homolog pairs**, each PDB identity **verified
 by its RCSB polymer-entity name** (full-text search alone produced 18/28 false
 positives — wrong protein under the right keyword — all filtered out). Structures
-are X-ray ≤2.5 Å, restricted to the first chain. Organisms span 6 thermophiles
-(*Thermotoga*, *Thermus*, *Pyrococcus*, *Methanocaldococcus*, …) vs mesophilic
-*E. coli* / *B. subtilis* / *Clostridium*.
+are X-ray ≤2.5 Å, restricted to the first chain. Organisms span 5 thermophiles
+(*Thermotoga maritima*, *Thermus thermophilus*, *Pyrococcus furiosus*,
+*Pyrococcus horikoshii*, *Methanocaldococcus jannaschii*) vs 2 mesophiles
+(*Escherichia coli*, *Clostridium pasteurianum*).
 
 | Feature (hypothesis) | Pairs matching | Wilcoxon p |
 |---|---|---|

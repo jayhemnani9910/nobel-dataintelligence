@@ -18,8 +18,8 @@ no fabricated numbers, missing baselines raise rather than fake. The core
 scientific claim (physics-informed features help) remains **unproven** — a
 controlled validation came back negative (see `docs/PHYSICS_SIGNAL_VALIDATION.md`).
 
-**Test suite:** 5 failing at audit start → **0 failing** (177 passed,
-10 skipped; 187 collected), up from 177 original tests. Added regression
+**Test suite:** 5 failing at audit start → **0 failing** (180 passed,
+10 skipped; 190 collected), up from 177 original tests. Added regression
 guards for both physics bugs and the ablation runner.
 
 ---
@@ -58,7 +58,7 @@ variants now give distinct metrics. Guard: `vibropredict/tests/test_ablation.py`
 - **4 wandb tests** — mock lacked `__spec__`; added a valid spec.
 - **Entropy unit mislabel** in `scripts/real_world_petase.py` — "kB" → J/(mol·K)
   (value is R·Σ); JSON key renamed.
-- **README test count** — "103+" → "180+" (actual: 187).
+- **README test count** — "103+" → "180+" (actual: 190 collected, 180 passing).
 
 ---
 
@@ -137,6 +137,6 @@ self-audits worth preserving.
   spectra/{gnm_calculator,vdos_engine}, structures/{esmfold,sifts,qc},
   data/{kinhub,splits,standardization,enzyextract,dataset},
   evaluation/{ablation,sota_comparison,visualization,baselines/*}, training/*.
-- Tests: 17 files, 187 tests (8 in `tests/`, 9 in `vibropredict/tests/`).
+- Tests: 18 files, 190 collected / 180 passing (9 in `tests/`, 9 in `vibropredict/tests/`).
 - Scripts: `real_world_petase.py`, `run_benchmarks.py`, `audit_kinhub_vs_realkcat.py`.
 - Notebooks: 4 in `notebooks/`, 2 Colab.
