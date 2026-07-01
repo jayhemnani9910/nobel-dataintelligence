@@ -120,7 +120,8 @@ self-audits worth preserving.
    encoders need ProtT5-XL (~11 GB) + ChemBERTa + GPU-hours. Deliberately NOT run
    on toy data — that would manufacture exactly the unsubstantiated number this
    audit flags. Needs: real dataset added, then a GPU run measuring the spectral
-   branch's gate weight and marginal R².
+   branch's gate weight and marginal R². **Turn-key steps (verified paths,
+   schema, commands): [`docs/BENCHMARK_RUNBOOK.md`](docs/BENCHMARK_RUNBOOK.md).**
 5. **Strengthen the physics** (research) — per-residue fluctuation profiles or
    conformer-ensemble VDOS instead of scalar moments; re-test.
 6. **Package a small real demo dataset** (LOW) — replace placeholder data so the
