@@ -110,6 +110,7 @@ class TestWandBEnabled:
         from vibropredict.training.trainer import TrainerWithMMDrop
 
         mock_wandb = MagicMock()
+        mock_wandb.__spec__ = importlib.util.spec_from_loader("wandb", loader=None)
         mock_wandb.init = MagicMock()
         mock_wandb.log = MagicMock()
         mock_wandb.finish = MagicMock()
@@ -127,6 +128,7 @@ class TestWandBEnabled:
         from vibropredict.training.trainer import TrainerWithMMDrop
 
         mock_wandb = MagicMock()
+        mock_wandb.__spec__ = importlib.util.spec_from_loader("wandb", loader=None)
         mock_wandb.init = MagicMock()
         mock_wandb.log = MagicMock()
         mock_wandb.finish = MagicMock()
@@ -156,6 +158,7 @@ class TestWandBEnabled:
         from vibropredict.training.trainer import TrainerWithMMDrop
 
         mock_wandb = MagicMock()
+        mock_wandb.__spec__ = importlib.util.spec_from_loader("wandb", loader=None)
         mock_wandb.init = MagicMock()
         mock_wandb.log = MagicMock()
         mock_wandb.finish = MagicMock()
@@ -176,6 +179,7 @@ class TestWandBEnabled:
         from vibropredict.training.trainer import TrainerWithMMDrop
 
         mock_wandb = MagicMock()
+        mock_wandb.__spec__ = importlib.util.spec_from_loader("wandb", loader=None)
         mock_wandb.init = MagicMock()
         mock_wandb.log = MagicMock()
         mock_wandb.finish = MagicMock()

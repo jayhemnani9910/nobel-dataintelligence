@@ -66,11 +66,17 @@ class VibroEnzymePipeline:
 
         eigenvalues, _ = self.gnm_calculator.compute_from_pdb(pdb_path)
 
-        # Convert GNM eigenvalues to approximate frequencies in cm^-1.
-        # GNM eigenvalues are proportional to omega^2; apply the same
-        # conversion factor used in ANMAnalyzer.
-        conversion_factor = 1 / (2 * np.pi * 29979.2458)
-        frequencies = np.sqrt(np.maximum(eigenvalues, 0)) * conversion_factor
+        # Convert GNM eigenvalues to approximate wavenumbers in cm^-1.
+        # GNM eigenvalues are proportional to omega^2, so nu ~ sqrt(lambda).
+        # Use the SAME physically-scaled constant as ANMAnalyzer
+        # (ENM_FREQ_CM1_PER_SQRT_EIGVAL ~ 108.6 cm^-1 per sqrt(eigval)) so the
+        # two VDOS code paths agree. The previous 1/(2*pi*29979.2458) factor was
+        # ~2e7x too small and collapsed every spectrum to a delta at 0 cm^-1.
+        # GNM is mass-less, so these are pseudo-frequencies on a reduced scale;
+        # the relative spectrum (not the absolute value) is the ML feature.
+        from src.nma_analysis import ENM_FREQ_CM1_PER_SQRT_EIGVAL
+
+        frequencies = np.sqrt(np.maximum(eigenvalues, 0)) * ENM_FREQ_CM1_PER_SQRT_EIGVAL
 
         generator = SpectralGenerator(freq_min=0, freq_max=self.freq_max, n_points=self.n_points)
         vdos = generator.generate_dos(frequencies, broadening=self.broadening)

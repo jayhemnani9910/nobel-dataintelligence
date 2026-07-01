@@ -92,6 +92,8 @@ class VibroPredictHybrid(nn.Module):
         substrate_smiles: list[str],
         product_smiles: list[str] = None,
         drop_spectral: bool = False,
+        drop_sequence: bool = False,
+        drop_chemical: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass through the full multimodal pipeline.
@@ -103,6 +105,8 @@ class VibroPredictHybrid(nn.Module):
             product_smiles: Optional list of product SMILES strings.
             drop_spectral: If ``True``, zero out the spectral embedding
                 (useful for ablation or when VDOS is unavailable).
+            drop_sequence: If ``True``, zero out the sequence embedding.
+            drop_chemical: If ``True``, zero out the chemical embedding.
 
         Returns:
             Tuple of:
@@ -114,8 +118,13 @@ class VibroPredictHybrid(nn.Module):
 
         if drop_spectral:
             h_spec = torch.zeros_like(h_spec)
+        if drop_sequence:
+            h_seq = torch.zeros_like(h_seq)
 
         h_chem = self.chem_encoder(substrate_smiles, product_smiles)  # (batch, chem_dim)
+
+        if drop_chemical:
+            h_chem = torch.zeros_like(h_chem)
 
         fused, gates = self.fusion(h_seq, h_spec, h_chem)  # (batch, fusion_dim), (batch, 3)
         logkcat = self.regressor(fused).squeeze(-1)  # (batch,)

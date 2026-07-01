@@ -45,10 +45,10 @@ def run_ablation(
     variants: list[dict] = []
 
     for variant_name, config in [
-        ("full", {"drop_spectral": False, "zero_seq": False, "zero_chem": False}),
-        ("no_spectral", {"drop_spectral": True, "zero_seq": False, "zero_chem": False}),
-        ("no_sequence", {"drop_spectral": False, "zero_seq": True, "zero_chem": False}),
-        ("no_chemical", {"drop_spectral": False, "zero_seq": False, "zero_chem": True}),
+        ("full", {"drop_spectral": False, "drop_sequence": False, "drop_chemical": False}),
+        ("no_spectral", {"drop_spectral": True, "drop_sequence": False, "drop_chemical": False}),
+        ("no_sequence", {"drop_spectral": False, "drop_sequence": True, "drop_chemical": False}),
+        ("no_chemical", {"drop_spectral": False, "drop_sequence": False, "drop_chemical": True}),
     ]:
         all_preds = []
         all_targets = []
@@ -64,39 +64,18 @@ def run_ablation(
                 product_smiles = batch.get("product_smiles")
                 log_kcat = batch["log_kcat"].to(device)
 
+                # Each variant zeroes the corresponding modality embedding
+                # inside the model via the drop_* flags, so the fusion layer
+                # sees a genuinely ablated input (not a re-run of the full model).
                 logkcat, gates = model(
                     sequences,
                     vdos,
                     substrate_smiles,
                     product_smiles,
-                    config["drop_spectral"],
+                    drop_spectral=config["drop_spectral"],
+                    drop_sequence=config["drop_sequence"],
+                    drop_chemical=config["drop_chemical"],
                 )
-
-                # Zero out sequence contribution manually
-                if config["zero_seq"]:
-                    logkcat = torch.zeros_like(logkcat)
-                    logkcat_rerun, _ = model(
-                        sequences,
-                        vdos,
-                        substrate_smiles,
-                        product_smiles,
-                        config["drop_spectral"],
-                    )
-                    # Re-run but we need to zero the sequence path;
-                    # since we lack direct access, we zero the output and
-                    # rely on the gate mechanism. For a proper ablation,
-                    # the model should support modality zeroing.
-                    logkcat = logkcat_rerun
-
-                if config["zero_chem"]:
-                    logkcat_rerun, _ = model(
-                        sequences,
-                        vdos,
-                        substrate_smiles,
-                        product_smiles,
-                        config["drop_spectral"],
-                    )
-                    logkcat = logkcat_rerun
 
                 all_preds.append(logkcat.cpu().numpy())
                 all_targets.append(log_kcat.cpu().numpy())

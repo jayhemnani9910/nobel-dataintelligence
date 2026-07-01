@@ -29,6 +29,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# --- Eigenvalue -> frequency conversion for elastic network models -----------
+#
+# ProDy's ANM/GNM eigenvalues are omega^2 in *reduced* ENM units: the default
+# spring constant is gamma = 1 kcal/mol/Angstrom^2 and masses are unit (amu).
+# One reduced eigenvalue unit therefore equals
+#
+#     gamma / mass = 1 kcal/mol/Angstrom^2 / 1 amu
+#
+# which, converted to SI, is 4.184e26 s^-2. The corresponding wavenumber is
+#
+#     nu [cm^-1] = sqrt(lambda) * sqrt(base_s2) / (2*pi*c_cm_s)
+#                = sqrt(lambda) * 108.59 cm^-1
+#
+# with base_s2 = (4184 J/mol / N_A) / (1e-20 m^2 * 1.66054e-27 kg) and
+# c_cm_s = 2.99792458e10 cm/s. This places the softest protein modes in the
+# ~10-40 cm^-1 band and the stiffest requested modes near a few hundred cm^-1,
+# matching the physical range of collective vibrations.
+#
+# NOTE ON ABSOLUTE SCALE: because gamma=1 is arbitrary, these are *reduced*
+# (uncalibrated) wavenumbers. The absolute scale is not experimentally
+# calibrated, but the *relative* spectrum — and hence the shape of the VDOS
+# used as an ML feature and the entropy differences between structures — is
+# physically meaningful and protein-specific. (The previous 1/(2*pi*29979.2458)
+# factor was ~2e7x too small and collapsed every VDOS to a delta at 0 cm^-1,
+# making all proteins indistinguishable; see tests/test_spectral.py.)
+_KCAL_PER_MOL_J = 4184.0 / 6.02214076e23  # J per molecule
+_ANG2_M2 = 1e-20
+_AMU_KG = 1.66053907e-27
+_C_CM_S = 2.99792458e10  # speed of light, cm/s
+_ENM_BASE_S2 = _KCAL_PER_MOL_J / (_ANG2_M2 * _AMU_KG)  # reduced omega^2 unit in s^-2
+ENM_FREQ_CM1_PER_SQRT_EIGVAL = float(np.sqrt(_ENM_BASE_S2) / (2 * np.pi * _C_CM_S))  # ~108.59
+
+
 class ANMAnalyzer:
     """
     Anisotropic Network Model analyzer for protein dynamics.
@@ -135,9 +168,10 @@ class ANMAnalyzer:
         self._eigenvalues = eigvals[selected_idx]
         self._eigenvectors = eigvecs[:, selected_idx]
 
-        # Convert eigenvalues (omega^2) to frequencies in cm^-1.
-        conversion_factor = 1 / (2 * np.pi * 29979.2458)  # 1/c in fs/cm
-        frequencies = np.sqrt(np.maximum(self._eigenvalues, 0)) * conversion_factor
+        # Convert reduced ENM eigenvalues (omega^2) to wavenumbers in cm^-1.
+        # See ENM_FREQ_CM1_PER_SQRT_EIGVAL for the derivation and the note on
+        # reduced (uncalibrated) absolute scale.
+        frequencies = np.sqrt(np.maximum(self._eigenvalues, 0)) * ENM_FREQ_CM1_PER_SQRT_EIGVAL
 
         self._frequencies = frequencies
         if frequencies.size:

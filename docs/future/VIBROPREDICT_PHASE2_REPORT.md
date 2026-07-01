@@ -1,4 +1,24 @@
+---
+title: VibroPredict Phase II Report
+aliases:
+  - VIBROPREDICT_PHASE2_REPORT
+tags:
+  - report
+  - phase/3
+---
+
 # VibroPredict Phase II Report: Database Construction and Hybrid Model Training Strategies
+
+> [!WARNING] Status (audit 2026): targets unmet, physics unproven
+> The **R² > 0.75** figures below are *design targets*, not measured results.
+> `benchmarks/benchmarks.json` remains a dry-run — no VibroPredict R² has been
+> produced. A controlled test of the physics branch came back **negative**
+> (see [`PHYSICS_SIGNAL_VALIDATION.md`](../PHYSICS_SIGNAL_VALIDATION.md) and
+> [`AUDIT.md`](../../AUDIT.md)). Read the numbers here as goals to validate, not
+> claims that hold.
+
+> [!NOTE]
+> **Related vault notes**: [Phase 3 VibroPredict architecture](../../vault/architecture/Phase%203%20VibroPredict.md) · [Tri-Modal Fusion](../../vault/concepts/Tri-Modal%20Fusion.md) · [MM-Drop](../../vault/concepts/MM-Drop.md) · [KinHub dataset](../../vault/datasets/KinHub.md) · [EnzyExtractDB](../../vault/datasets/EnzyExtractDB.md) · [Home](../../vault/Home.md)
 
 ## Executive Summary
 

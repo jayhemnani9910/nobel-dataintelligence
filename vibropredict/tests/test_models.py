@@ -92,16 +92,21 @@ class TestMutantRankingLoss(unittest.TestCase):
     def test_forward_with_mutant_pairs(self):
         """Test loss includes ranking term when mutant_pairs provided."""
         loss_fn = MutantRankingLoss(lambda_rank=0.1)
-        preds = torch.tensor([1.0, 2.0, 3.0, 0.5])
-        targets = torch.tensor([1.1, 1.9, 3.2, 0.4])
-        pairs = torch.tensor([[0, 1], [2, 3]])
+        # Construct predictions that VIOLATE the ranking implied by targets so
+        # the margin_ranking_loss term is guaranteed non-zero (avoids a flaky
+        # test where predictions happen to already satisfy the margin).
+        # Target ordering: index 0 > index 1 (target_diff = +1.0, sign +1),
+        # but predictions have preds[0] < preds[1], violating the margin.
+        preds = torch.tensor([1.0, 2.0])
+        targets = torch.tensor([2.0, 1.0])
+        pairs = torch.tensor([[0, 1]])
 
         loss_with_pairs = loss_fn(preds, targets, mutant_pairs=pairs)
         loss_no_pairs = loss_fn(preds, targets)
 
-        # With ranking term, loss should differ from pure MSE
+        # With a violated ranking pair, the loss must exceed pure MSE.
         self.assertIsInstance(loss_with_pairs.item(), float)
-        self.assertNotAlmostEqual(loss_with_pairs.item(), loss_no_pairs.item(), places=6)
+        self.assertGreater(loss_with_pairs.item(), loss_no_pairs.item())
         self.assertGreater(loss_with_pairs.item(), 0)
 
     def test_loss_is_differentiable(self):
