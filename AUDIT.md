@@ -66,11 +66,11 @@ variants now give distinct metrics. Guard: `vibropredict/tests/test_ablation.py`
 
 | # | Severity | Item | Location |
 |---|---|---|---|
-| 1 | HIGH | Headline "R²>0.75" unsubstantiated — `benchmarks.json` is an empty dry-run; claim also in 2 docs | README, `docs/future/VIBROPREDICT_*` |
-| 2 | HIGH | Physics thesis unproven — controlled homolog test negative (n=8) | `docs/PHYSICS_SIGNAL_VALIDATION.md` |
-| 3 | MEDIUM | Inference CLI non-functional — missing checkpoints + kcat path fabricates VDOS from `sqrt(arange)*15` | `src/inference.py` |
+| 1 | HIGH | ~~Headline "R²>0.75" unsubstantiated~~ **RECONCILED** — README + both roadmap docs now flag it as an unmet target | README, `docs/future/VIBROPREDICT_*` |
+| 2 | HIGH | Physics thesis **tested and negative** — powered curated homolog test (n=27) confirms no signal; documented, not hidden | `docs/PHYSICS_SIGNAL_VALIDATION.md` |
+| 3 | MEDIUM | ~~Inference CLI non-functional~~ **FIXED** — real NMA VDOS via `--pdb`; honest checkpoint error; warned length-only fallback | `src/inference.py`, `src/cli.py` |
 | 4 | LOW | Bundled data is placeholder (4-row CSV, `HEADER DUMMY` PDB) | `data/` |
-| 5 | LOW | 10 bundled checkpoints don't match CLI-expected names | `checkpoints/` |
+| 5 | LOW | ~~10 bundled checkpoints don't match CLI names~~ **ADDRESSED** — resolver now raises an honest error naming the toy stubs | `checkpoints/` |
 
 Modules read and found structurally clean (no correctness bug detected): GNN
 GATv2 encoder (`src/models/gnn.py`), structure pipeline (ESMFold / SIFTS / QC),

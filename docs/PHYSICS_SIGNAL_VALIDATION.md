@@ -70,9 +70,41 @@ themselves. Continuing to try features on the same 8 noisy pairs would be
 fishing, so we stop here.
 
 **What a real test needs:** a curated pair set of ≥30–50 thermophile/mesophile
-homologs controlled for length, construct, and ligand state (e.g. from a
-ProThermDB / Meltome-derived list), and ideally conformer ensembles rather than
-single X-ray snapshots. That is a study in itself, not a quick validation.
+homologs controlled for length, construct, and ligand state, and ideally
+conformer ensembles rather than single X-ray snapshots. **This was subsequently
+built (n=27 validated pairs) — see the powered follow-up below, which confirms
+the negative.**
+
+## Powered follow-up (n=27) — negative confirmed
+
+The n=8 test above was underpowered, so we built the curated set it called for:
+**27 thermophile/mesophile enzyme homolog pairs**, each PDB identity **verified
+by its RCSB polymer-entity name** (full-text search alone produced 18/28 false
+positives — wrong protein under the right keyword — all filtered out). Structures
+are X-ray ≤2.5 Å, restricted to the first chain. Organisms span 6 thermophiles
+(*Thermotoga*, *Thermus*, *Pyrococcus*, *Methanocaldococcus*, …) vs mesophilic
+*E. coli* / *B. subtilis* / *Clostridium*.
+
+| Feature (hypothesis) | Pairs matching | Wilcoxon p |
+|---|---|---|
+| Entropy/res — thermophile lower | 12 / 27 | 0.83 |
+| Softest mode — thermophile stiffer | 13 / 27 | 0.47 |
+| Mean MSF — thermophile more rigid | 14 / 27 | 0.46 |
+| Mean VDOS freq — thermophile higher | 13 / 27 | 0.39 |
+| Contact density — thermophile denser | 13 / 27 | 0.81 |
+
+**Every feature sits at chance (44–52 %); no test approaches significance.** A
+length-matched subset (ratio < 1.10, n=16) is no better. See
+`curated_physics_validation.png` and `curated_physics_features.csv`.
+
+The result is now robust, not a small-sample artifact. Even **contact density**
+— a feature the stability literature genuinely supports — fails at n=27, which
+points to the common cause: **a single static X-ray snapshot analysed with a
+uniform coarse-grained network model discards the determinants of
+thermostability** (electrostatics, packing detail, solvent, sequence-level
+substitutions), regardless of which scalar summary is extracted. This does *not*
+refute the units-bug fix (spectra are correctly protein-specific now); it says
+single-structure NMA summaries are the wrong *feature*, not that the code is wrong.
 
 ## Implication for Phase 2 (full tri-modal benchmark)
 

@@ -216,6 +216,7 @@ def run_predict_stability(
     pH: float,
     checkpoint: Path,
     device: str | None,
+    pdb: Path | None = None,
 ) -> None:
     from .inference import predict_stability
 
@@ -225,6 +226,7 @@ def run_predict_stability(
         pH=pH,
         checkpoint_path=str(checkpoint),
         device=resolved_device,
+        pdb_path=str(pdb) if pdb else None,
     )
     print(f"Predicted Tm: {result['predicted_tm']} °C")
     print(f"Sequence length: {result['sequence_length']}")
@@ -236,6 +238,7 @@ def run_predict_kcat(
     product_smiles: str | None,
     checkpoint: Path,
     device: str | None,
+    pdb: Path | None = None,
 ) -> None:
     from .inference import predict_kcat
 
@@ -246,6 +249,7 @@ def run_predict_kcat(
         product_smiles=product_smiles,
         checkpoint_path=str(checkpoint),
         device=resolved_device,
+        pdb_path=str(pdb) if pdb else None,
     )
     print(f"Predicted log10(k_cat): {result['predicted_log_kcat']}")
     print(f"Predicted k_cat: {result['predicted_kcat']} s⁻¹")
@@ -276,6 +280,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_ps.add_argument("--pH", type=float, default=7.0)
     p_ps.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/novozymes_best.pt"))
     p_ps.add_argument("--device", type=str, default=None)
+    p_ps.add_argument(
+        "--pdb",
+        type=Path,
+        default=None,
+        help="Optional PDB structure for real NMA-derived VDOS (recommended)",
+    )
 
     p_pk = sub.add_parser("predict-kcat", help="Predict k_cat for an enzyme-substrate pair")
     p_pk.add_argument("--sequence", type=str, required=True, help="Amino acid sequence")
@@ -283,6 +293,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_pk.add_argument("--product-smiles", type=str, default=None, help="Product SMILES (optional)")
     p_pk.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/vibropredict_best.pt"))
     p_pk.add_argument("--device", type=str, default=None)
+    p_pk.add_argument(
+        "--pdb",
+        type=Path,
+        default=None,
+        help="Optional PDB structure for real NMA-derived VDOS (recommended)",
+    )
 
     return p
 
@@ -313,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
             pH=args.pH,
             checkpoint=args.checkpoint,
             device=args.device,
+            pdb=args.pdb,
         )
         return 0
 
@@ -322,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
             smiles=args.smiles,
             product_smiles=args.product_smiles,
             checkpoint=args.checkpoint,
+            pdb=args.pdb,
             device=args.device,
         )
         return 0

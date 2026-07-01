@@ -16,16 +16,36 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def _generate_vdos_for_sequence(sequence: str, n_points: int = 1000) -> np.ndarray:
-    """Generate a VDOS spectrum for a protein sequence using pseudo-coordinates.
+def _generate_vdos_for_sequence(
+    sequence: str, pdb_path: str | None = None, n_points: int = 1000
+) -> np.ndarray:
+    """Generate a VDOS spectrum for a protein.
 
-    For real predictions, pre-computed VDOS from actual PDB structures is preferred.
-    This fallback uses deterministic pseudo-coordinates when no structure is available.
+    If ``pdb_path`` is given, computes a *real* VDOS from the structure via
+    normal-mode analysis (the same corrected GNM pipeline used in training).
+    This is strongly preferred and gives a protein-specific spectrum.
+
+    If no structure is available, falls back to a crude sequence-length-only
+    pseudo-spectrum (``sqrt(1..N) * 15``). This fallback carries **no
+    structural information** — it is a function of chain length alone — so
+    predictions built on it are not physically meaningful. A warning is emitted.
     """
     from .spectral_generation import SpectralGenerator
 
-    # Simple distance-based frequency estimation from sequence length.
-    # Rough approximation — real NMA requires ProDy and a structure.
+    if pdb_path is not None:
+        # Real NMA-derived VDOS from the structure (corrected eigenvalue scaling).
+        from vibropredict.spectra.vdos_engine import VibroEnzymePipeline
+
+        pipeline = VibroEnzymePipeline(n_points=n_points, freq_max=500.0, broadening=5.0)
+        vdos, _ = pipeline.generate_vdos(pdb_path)
+        logger.info("Computed real NMA VDOS from structure %s", pdb_path)
+        return np.asarray(vdos, dtype=np.float64)
+
+    logger.warning(
+        "No structure provided (pdb_path=None): falling back to a sequence-length "
+        "pseudo-VDOS that contains NO structural signal. Predictions will not be "
+        "physically meaningful. Pass a PDB structure for real NMA-based VDOS."
+    )
     n_residues = len(sequence)
     frequencies = np.sqrt(np.arange(1, min(n_residues, 100) + 1, dtype=np.float64)) * 15.0
 
@@ -34,11 +54,40 @@ def _generate_vdos_for_sequence(sequence: str, n_points: int = 1000) -> np.ndarr
     return vdos
 
 
+def _resolve_checkpoint(checkpoint_path: Path) -> Path:
+    """Validate a checkpoint path, raising a helpful error if missing.
+
+    Lists any checkpoints actually present in the directory so the user knows
+    what is available. Note: the ``best_model_epoch*.pt`` files bundled in the
+    repo are toy artifacts from the training smoke test (a 2-parameter linear
+    stub) and are NOT compatible with the inference model architectures — do
+    not point ``--checkpoint`` at them.
+    """
+    checkpoint_path = Path(checkpoint_path)
+    if checkpoint_path.exists():
+        return checkpoint_path
+
+    parent = checkpoint_path.parent
+    available = sorted(p.name for p in parent.glob("*.pt")) if parent.exists() else []
+    hint = (
+        f" Checkpoints found in {parent}/: {available}."
+        " (Note: bundled best_model_epoch*.pt are toy smoke-test stubs, not"
+        " trained inference models.)"
+        if available
+        else f" No .pt checkpoints found in {parent}/."
+    )
+    raise FileNotFoundError(
+        f"Checkpoint not found: {checkpoint_path}. Train a model first"
+        f" (Colab notebook or CLI) and point --checkpoint at it.{hint}"
+    )
+
+
 def predict_stability(
     sequence: str,
     pH: float = 7.0,
     checkpoint_path: str = "checkpoints/novozymes_best.pt",
     device: str = "cpu",
+    pdb_path: str | None = None,
 ) -> dict:
     """Predict melting temperature (Tm) for a protein mutation.
 
@@ -47,6 +96,10 @@ def predict_stability(
         pH: pH value for the assay condition.
         checkpoint_path: Path to a trained VibroStructuralModel checkpoint.
         device: Device for inference ('cpu' or 'cuda').
+        pdb_path: Optional path to a PDB structure. If given, real C-alpha
+            coordinates and real NMA-derived VDOS are used; otherwise a
+            structure-free extended-chain graph and pseudo-VDOS are used
+            (a warning is emitted, and results are not physically meaningful).
 
     Returns:
         Dictionary with 'predicted_tm' (float) and 'sequence_length' (int).
@@ -54,12 +107,7 @@ def predict_stability(
     from .models.gnn import GraphConstruction
     from .models.multimodal import VibroStructuralModel
 
-    checkpoint_path = Path(checkpoint_path)
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(
-            f"Checkpoint not found: {checkpoint_path}. "
-            "Train a model first using the Colab notebook or CLI."
-        )
+    checkpoint_path = _resolve_checkpoint(Path(checkpoint_path))
 
     # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
@@ -76,21 +124,40 @@ def predict_stability(
     model.to(device)
     model.eval()
 
-    # Build graph from sequence
+    # Build graph from sequence. With a structure, use real C-alpha coordinates;
+    # otherwise fall back to an extended-chain placeholder (no 3D information).
     features = GraphConstruction.construct_residue_features(sequence)
-    coords = torch.stack(
-        [
-            torch.arange(len(sequence), dtype=torch.float32) * 3.8,
-            torch.zeros(len(sequence)),
-            torch.zeros(len(sequence)),
-        ],
-        dim=1,
-    )
-    graph = GraphConstruction.construct_ca_graph(coords, features, distance_cutoff=10.0)
-    graph.batch = torch.zeros(len(sequence), dtype=torch.long)
+    if pdb_path is not None:
+        import prody as _pr
 
-    # Generate VDOS
-    vdos = _generate_vdos_for_sequence(sequence)
+        _ca = _pr.parsePDB(pdb_path).select("name CA")
+        coords = torch.tensor(_ca.getCoords(), dtype=torch.float32)
+        if coords.shape[0] != len(sequence):
+            logger.warning(
+                "Structure has %d CA atoms but sequence length is %d; "
+                "using structure coordinates and truncating features to match.",
+                coords.shape[0],
+                len(sequence),
+            )
+            features = features[: coords.shape[0]]
+    else:
+        logger.warning(
+            "No structure provided: building an extended-chain graph "
+            "(no real 3D topology). Pass pdb_path for a real structure."
+        )
+        coords = torch.stack(
+            [
+                torch.arange(len(sequence), dtype=torch.float32) * 3.8,
+                torch.zeros(len(sequence)),
+                torch.zeros(len(sequence)),
+            ],
+            dim=1,
+        )
+    graph = GraphConstruction.construct_ca_graph(coords, features, distance_cutoff=10.0)
+    graph.batch = torch.zeros(coords.shape[0], dtype=torch.long)
+
+    # Generate VDOS (real NMA if a structure was supplied)
+    vdos = _generate_vdos_for_sequence(sequence, pdb_path=pdb_path)
     spectra = torch.tensor(vdos, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
 
     # Global features
@@ -117,6 +184,7 @@ def predict_kcat(
     product_smiles: str | None = None,
     checkpoint_path: str = "checkpoints/vibropredict_best.pt",
     device: str = "cpu",
+    pdb_path: str | None = None,
 ) -> dict:
     """Predict catalytic turnover (k_cat) for an enzyme-substrate pair.
 
@@ -126,18 +194,16 @@ def predict_kcat(
         product_smiles: Optional SMILES string for the product.
         checkpoint_path: Path to a trained VibroPredictHybrid checkpoint.
         device: Device for inference ('cpu' or 'cuda').
+        pdb_path: Optional path to a PDB structure for real NMA-derived VDOS.
+            Without it, a structure-free pseudo-VDOS is used (warned; not
+            physically meaningful).
 
     Returns:
         Dictionary with 'predicted_log_kcat', 'predicted_kcat', and 'gate_weights'.
     """
     from vibropredict.models.vibropredict_hybrid import VibroPredictHybrid
 
-    checkpoint_path = Path(checkpoint_path)
-    if not checkpoint_path.exists():
-        raise FileNotFoundError(
-            f"Checkpoint not found: {checkpoint_path}. "
-            "Train a model first using the Colab notebook."
-        )
+    checkpoint_path = _resolve_checkpoint(Path(checkpoint_path))
 
     # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
@@ -148,8 +214,8 @@ def predict_kcat(
     model.to(device)
     model.eval()
 
-    # Generate VDOS
-    vdos = _generate_vdos_for_sequence(sequence)
+    # Generate VDOS (real NMA if a structure was supplied)
+    vdos = _generate_vdos_for_sequence(sequence, pdb_path=pdb_path)
     vdos_tensor = torch.tensor(vdos, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
 
     # Predict
