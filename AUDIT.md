@@ -114,9 +114,13 @@ self-audits worth preserving.
    ensembles. The definitive test of the core thesis. n=8 was underpowered.
 3. **Fix the inference CLI** (MEDIUM) — wire real NMA VDOS into the kcat path,
    resolve checkpoint-name mismatch, so `predict-*` actually runs.
-4. **Tri-modal benchmark with honest ablation** (MEDIUM, needs data+GPU) — now
-   that ablation works, train on a real labelled split and *measure* the spectral
-   branch's gate weight + marginal R² rather than assuming it helps.
+4. **Tri-modal benchmark with honest ablation** (MEDIUM, **BLOCKED on data**) —
+   the runner + ablation are now correct, but the real labelled kcat split
+   (KinHub/RealKcat) is not in the repo (bundled data is 4-row toy CSVs) and the
+   encoders need ProtT5-XL (~11 GB) + ChemBERTa + GPU-hours. Deliberately NOT run
+   on toy data — that would manufacture exactly the unsubstantiated number this
+   audit flags. Needs: real dataset added, then a GPU run measuring the spectral
+   branch's gate weight and marginal R².
 5. **Strengthen the physics** (research) — per-residue fluctuation profiles or
    conformer-ensemble VDOS instead of scalar moments; re-test.
 6. **Package a small real demo dataset** (LOW) — replace placeholder data so the
