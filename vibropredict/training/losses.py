@@ -51,12 +51,7 @@ class MutantRankingLoss(nn.Module):
         mse_loss = F.mse_loss(predictions, targets)
 
         if mutant_pairs is not None:
-            pred_diff = (
-                predictions[mutant_pairs[:, 0]] - predictions[mutant_pairs[:, 1]]
-            )
-            target_diff = (
-                targets[mutant_pairs[:, 0]] - targets[mutant_pairs[:, 1]]
-            )
+            target_diff = targets[mutant_pairs[:, 0]] - targets[mutant_pairs[:, 1]]
             target_sign = torch.sign(target_diff)
             ranking_loss = F.margin_ranking_loss(
                 predictions[mutant_pairs[:, 0]],

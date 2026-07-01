@@ -8,7 +8,6 @@ experimentally resolved PDB structures, with local JSON caching.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List
 
 import pandas as pd
 import requests
@@ -36,7 +35,7 @@ class SIFTSMapper:
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    def _fetch_mapping(self, uniprot_id: str) -> Dict:
+    def _fetch_mapping(self, uniprot_id: str) -> dict:
         """
         Fetch SIFTS mapping for a single UniProt ID (with caching).
 
@@ -49,7 +48,7 @@ class SIFTSMapper:
         cache_file = self.cache_dir / f"{uniprot_id}.json"
 
         if cache_file.exists():
-            with open(cache_file, "r") as fh:
+            with open(cache_file) as fh:
                 return json.load(fh)
 
         url = SIFTS_API_URL.format(uid=uniprot_id)
@@ -66,7 +65,7 @@ class SIFTSMapper:
 
         return data
 
-    def map_uniprot_to_pdb(self, uniprot_ids: List[str]) -> pd.DataFrame:
+    def map_uniprot_to_pdb(self, uniprot_ids: list[str]) -> pd.DataFrame:
         """
         Map a list of UniProt IDs to PDB entries.
 
@@ -77,7 +76,7 @@ class SIFTSMapper:
             DataFrame with columns: uniprot_id, pdb_id, chain,
             resolution, coverage.
         """
-        rows: List[Dict] = []
+        rows: list[dict] = []
 
         for uid in uniprot_ids:
             data = self._fetch_mapping(uid)
@@ -88,13 +87,15 @@ class SIFTSMapper:
             pdb_mappings = data.get(uid, {}).get("PDB", {})
             for pdb_id, chains in pdb_mappings.items():
                 for entry in chains:
-                    rows.append({
-                        "uniprot_id": uid,
-                        "pdb_id": pdb_id,
-                        "chain": entry.get("chain_id", ""),
-                        "resolution": entry.get("resolution", float("inf")),
-                        "coverage": entry.get("coverage", 0.0),
-                    })
+                    rows.append(
+                        {
+                            "uniprot_id": uid,
+                            "pdb_id": pdb_id,
+                            "chain": entry.get("chain_id", ""),
+                            "resolution": entry.get("resolution", float("inf")),
+                            "coverage": entry.get("coverage", 0.0),
+                        }
+                    )
 
         df = pd.DataFrame(rows, columns=["uniprot_id", "pdb_id", "chain", "resolution", "coverage"])
         logger.info(f"SIFTS mapping: {len(uniprot_ids)} UniProt IDs -> {len(df)} PDB candidates")

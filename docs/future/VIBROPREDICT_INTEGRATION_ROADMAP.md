@@ -1,4 +1,25 @@
+---
+title: VibroPredict Integration Roadmap
+aliases:
+  - VIBROPREDICT_INTEGRATION_ROADMAP
+  - VP Roadmap
+tags:
+  - roadmap
+  - phase/3
+---
+
 # VibroPredict Integration Roadmap: Aligning with Quantum Data Decoder
+
+> [!WARNING] Status (audit 2026): targets unmet, physics unproven
+> The **R² > 0.75** and Δ-improvement figures in this roadmap are *design
+> targets*, not measured results. No benchmark run backs them
+> (`benchmarks/benchmarks.json` is a dry-run), and a controlled test of the
+> physics branch was **negative** (see
+> [`PHYSICS_SIGNAL_VALIDATION.md`](../PHYSICS_SIGNAL_VALIDATION.md) and
+> [`AUDIT.md`](../../AUDIT.md)). Treat them as goals to validate.
+
+> [!NOTE]
+> **Related vault notes**: [Phase 1-2 QDD](../../vault/architecture/Phase%201-2%20QDD.md) · [Phase 3 VibroPredict](../../vault/architecture/Phase%203%20VibroPredict.md) · [vibropredict/data](../../vault/modules/vibropredict/data.md) · [vibropredict/models](../../vault/modules/vibropredict/models.md) · [vibropredict/training](../../vault/modules/vibropredict/training.md) · [Home](../../vault/Home.md)
 
 **Integration Date**: December 2, 2025  
 **Status**: Planning Phase  

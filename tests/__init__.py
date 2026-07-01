@@ -12,13 +12,9 @@ Run all tests with:
 
 Run specific test file:
     python -m unittest tests.test_models
-    
+
 Run specific test:
     python -m unittest tests.test_models.TestProteinGNN.test_model_initialization
 """
 
-__all__ = [
-    'test_data_loading',
-    'test_models',
-    'test_training'
-]
+__all__ = ["test_data_loading", "test_models", "test_training"]

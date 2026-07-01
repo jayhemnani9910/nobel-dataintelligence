@@ -6,7 +6,6 @@ differential reaction fingerprints (DRFP) via Morgan fingerprints.
 """
 
 import logging
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -65,9 +64,7 @@ class ChemicalEncoder(nn.Module):
         self._smiles_encoder.eval()
         logger.info("ChemBERTa model loaded successfully")
 
-    def _compute_drfp(
-        self, substrate: str, product: str = None
-    ) -> torch.Tensor:
+    def _compute_drfp(self, substrate: str, product: str = None) -> torch.Tensor:
         """
         Compute a differential reaction fingerprint.
 
@@ -91,9 +88,7 @@ class ChemicalEncoder(nn.Module):
             logger.warning(f"Invalid substrate SMILES: {substrate}")
             return torch.zeros(self.fp_dim)
 
-        fp_sub = AllChem.GetMorganFingerprintAsBitVect(
-            mol_sub, radius=2, nBits=self.fp_dim
-        )
+        fp_sub = AllChem.GetMorganFingerprintAsBitVect(mol_sub, radius=2, nBits=self.fp_dim)
         arr_sub = torch.zeros(self.fp_dim)
         for bit in fp_sub.GetOnBits():
             arr_sub[bit] = 1.0
@@ -106,9 +101,7 @@ class ChemicalEncoder(nn.Module):
             logger.warning(f"Invalid product SMILES: {product}")
             return arr_sub
 
-        fp_prod = AllChem.GetMorganFingerprintAsBitVect(
-            mol_prod, radius=2, nBits=self.fp_dim
-        )
+        fp_prod = AllChem.GetMorganFingerprintAsBitVect(mol_prod, radius=2, nBits=self.fp_dim)
         arr_prod = torch.zeros(self.fp_dim)
         for bit in fp_prod.GetOnBits():
             arr_prod[bit] = 1.0

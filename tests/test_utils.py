@@ -1,17 +1,16 @@
 """Tests for shared utility functions."""
 
-import unittest
 import tempfile
-from pathlib import Path
+import unittest
 
 import numpy as np
 
 from src.utils import (
-    parse_fasta,
-    encode_sequence,
-    decode_sequence,
-    normalize_spectrum,
     compute_sequence_properties,
+    decode_sequence,
+    encode_sequence,
+    normalize_spectrum,
+    parse_fasta,
 )
 
 

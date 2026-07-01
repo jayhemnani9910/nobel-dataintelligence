@@ -1,9 +1,10 @@
 """Tests for spectral generation module."""
 
 import unittest
+
 import numpy as np
 
-from src.spectral_generation import SpectralGenerator, DeltaSpectralFeatures
+from src.spectral_generation import DeltaSpectralFeatures, SpectralGenerator
 
 
 class TestSpectralGeneratorDOS(unittest.TestCase):
@@ -58,8 +59,16 @@ class TestSpectralFeatures(unittest.TestCase):
     def test_feature_keys(self):
         spectrum = np.random.rand(1000)
         features = self.sg.extract_spectral_features(spectrum)
-        expected_keys = {"integral", "peak_height", "peak_frequency", "centroid",
-                         "std_dev", "skewness", "kurtosis", "num_peaks"}
+        expected_keys = {
+            "integral",
+            "peak_height",
+            "peak_frequency",
+            "centroid",
+            "std_dev",
+            "skewness",
+            "kurtosis",
+            "num_peaks",
+        }
         self.assertEqual(set(features.keys()), expected_keys)
 
 

@@ -6,7 +6,6 @@ that complement the KinHub training set.
 """
 
 import logging
-from typing import Set
 
 import pandas as pd
 
@@ -23,6 +22,7 @@ def _is_valid_smiles(smiles: str) -> bool:
         return False
     try:
         from rdkit import Chem  # type: ignore
+
         mol = Chem.MolFromSmiles(smiles)
         return mol is not None
     except ImportError:
@@ -58,7 +58,7 @@ class EnzyExtractFilter:
         logger.info(f"Loaded {len(df)} rows from {self.csv_path}")
         return df
 
-    def filter(self, df: pd.DataFrame, kinhub_ids: Set[str]) -> pd.DataFrame:
+    def filter(self, df: pd.DataFrame, kinhub_ids: set[str]) -> pd.DataFrame:
         """
         Apply quality and deduplication filters.
 
@@ -110,7 +110,5 @@ class EnzyExtractFilter:
             Concatenated DataFrame with a fresh integer index.
         """
         merged = pd.concat([kinhub_df, filtered_df], ignore_index=True)
-        logger.info(
-            f"Merged dataset: {len(kinhub_df)} + {len(filtered_df)} = {len(merged)} rows"
-        )
+        logger.info(f"Merged dataset: {len(kinhub_df)} + {len(filtered_df)} = {len(merged)} rows")
         return merged

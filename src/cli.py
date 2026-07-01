@@ -10,17 +10,17 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from .datasets import NovozymesDataset, CAFA5Dataset, create_dataloaders
+from .datasets import CAFA5Dataset, NovozymesDataset
 from .models.multimodal import VibroStructuralModel
-from .training import Trainer, MetricComputer
+from .training import MetricComputer, Trainer
 from .utils import batch_collate_function, get_device, parse_fasta, set_seed
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,9 @@ def _write_novozymes_submission(out_path: Path, seq_ids: Iterable[str], preds: n
     df.to_csv(out_path, index=False)
 
 
-def _write_cafa5_submission(out_path: Path, protein_ids: Iterable[str], go_terms_per_protein: list[list[str]]) -> None:
+def _write_cafa5_submission(
+    out_path: Path, protein_ids: Iterable[str], go_terms_per_protein: list[list[str]]
+) -> None:
     rows = []
     for pid, terms in zip(protein_ids, go_terms_per_protein, strict=False):
         rows.append({"protein_id": pid, "go_terms": " ".join(terms) if terms else "GO:0005575"})
@@ -107,7 +109,12 @@ def run_novozymes(
         num_go_terms=100,  # unused for Novozymes
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
-    trainer = Trainer(model=model, optimizer=optimizer, device=resolved_device, checkpoint_dir=str(data_dir / "checkpoints"))
+    trainer = Trainer(
+        model=model,
+        optimizer=optimizer,
+        device=resolved_device,
+        checkpoint_dir=str(data_dir / "checkpoints"),
+    )
     loss_fn = torch.nn.MSELoss()
 
     if epochs > 0:
@@ -123,8 +130,14 @@ def run_novozymes(
 
     # Predict on test.csv
     df_test = pd.read_csv(test_csv)
-    if "seq_id" not in df_test.columns or "protein_sequence" not in df_test.columns or "pH" not in df_test.columns:
-        raise ValueError("Unexpected Novozymes test.csv format; expected columns: seq_id, protein_sequence, pH")
+    if (
+        "seq_id" not in df_test.columns
+        or "protein_sequence" not in df_test.columns
+        or "pH" not in df_test.columns
+    ):
+        raise ValueError(
+            "Unexpected Novozymes test.csv format; expected columns: seq_id, protein_sequence, pH"
+        )
 
     test_dataset = NovozymesDataset(
         csv_file=str(test_csv),
@@ -149,7 +162,9 @@ def run_novozymes(
             global_features = batch.get("global_features")
             if global_features is not None:
                 global_features = global_features.to(trainer.device)
-            outputs = model(graph, spectra, global_features=global_features, task="novozymes").squeeze(-1)
+            outputs = model(
+                graph, spectra, global_features=global_features, task="novozymes"
+            ).squeeze(-1)
             preds.append(outputs.detach().cpu().numpy())
 
     preds_arr = np.concatenate(preds, axis=0)
@@ -171,7 +186,6 @@ def run_cafa5(
     if not test_fasta.exists():
         raise FileNotFoundError(f"Missing required file: {test_fasta}")
 
-    terms_df_raw = pd.read_csv(terms_csv)
     # Reuse CAFA5Dataset normalization by instantiating a tiny dataset object.
     dummy = CAFA5Dataset(
         sequences_fasta=str(test_fasta),
@@ -202,13 +216,17 @@ def run_predict_stability(
     pH: float,
     checkpoint: Path,
     device: str | None,
+    pdb: Path | None = None,
 ) -> None:
     from .inference import predict_stability
 
     resolved_device = device or "cpu"
     result = predict_stability(
-        sequence=sequence, pH=pH,
-        checkpoint_path=str(checkpoint), device=resolved_device,
+        sequence=sequence,
+        pH=pH,
+        checkpoint_path=str(checkpoint),
+        device=resolved_device,
+        pdb_path=str(pdb) if pdb else None,
     )
     print(f"Predicted Tm: {result['predicted_tm']} °C")
     print(f"Sequence length: {result['sequence_length']}")
@@ -220,18 +238,22 @@ def run_predict_kcat(
     product_smiles: str | None,
     checkpoint: Path,
     device: str | None,
+    pdb: Path | None = None,
 ) -> None:
     from .inference import predict_kcat
 
     resolved_device = device or "cpu"
     result = predict_kcat(
-        sequence=sequence, substrate_smiles=smiles,
+        sequence=sequence,
+        substrate_smiles=smiles,
         product_smiles=product_smiles,
-        checkpoint_path=str(checkpoint), device=resolved_device,
+        checkpoint_path=str(checkpoint),
+        device=resolved_device,
+        pdb_path=str(pdb) if pdb else None,
     )
     print(f"Predicted log10(k_cat): {result['predicted_log_kcat']}")
     print(f"Predicted k_cat: {result['predicted_kcat']} s⁻¹")
-    gw = result['gate_weights']
+    gw = result["gate_weights"]
     print(f"Attention gates: seq={gw['sequence']} spec={gw['spectral']} chem={gw['chemical']}")
 
 
@@ -258,6 +280,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_ps.add_argument("--pH", type=float, default=7.0)
     p_ps.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/novozymes_best.pt"))
     p_ps.add_argument("--device", type=str, default=None)
+    p_ps.add_argument(
+        "--pdb",
+        type=Path,
+        default=None,
+        help="Optional PDB structure for real NMA-derived VDOS (recommended)",
+    )
 
     p_pk = sub.add_parser("predict-kcat", help="Predict k_cat for an enzyme-substrate pair")
     p_pk.add_argument("--sequence", type=str, required=True, help="Amino acid sequence")
@@ -265,6 +293,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_pk.add_argument("--product-smiles", type=str, default=None, help="Product SMILES (optional)")
     p_pk.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/vibropredict_best.pt"))
     p_pk.add_argument("--device", type=str, default=None)
+    p_pk.add_argument(
+        "--pdb",
+        type=Path,
+        default=None,
+        help="Optional PDB structure for real NMA-derived VDOS (recommended)",
+    )
 
     return p
 
@@ -291,16 +325,22 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "predict-stability":
         run_predict_stability(
-            sequence=args.sequence, pH=args.pH,
-            checkpoint=args.checkpoint, device=args.device,
+            sequence=args.sequence,
+            pH=args.pH,
+            checkpoint=args.checkpoint,
+            device=args.device,
+            pdb=args.pdb,
         )
         return 0
 
     if args.cmd == "predict-kcat":
         run_predict_kcat(
-            sequence=args.sequence, smiles=args.smiles,
+            sequence=args.sequence,
+            smiles=args.smiles,
             product_smiles=args.product_smiles,
-            checkpoint=args.checkpoint, device=args.device,
+            checkpoint=args.checkpoint,
+            pdb=args.pdb,
+            device=args.device,
         )
         return 0
 
@@ -309,4 +349,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

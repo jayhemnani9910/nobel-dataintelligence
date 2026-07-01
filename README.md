@@ -28,13 +28,23 @@ Substrate SMILES ──► ChemBERTa + DRFP ────────────
 
 ## Benchmarks
 
+Published baselines for enzyme-kcat prediction (literature values):
+
 | Model | Year | R² | Key Modalities |
 |-------|------|----|----------------|
 | TurNuP | 2022 | 0.62 | Sequence + Fingerprints |
 | DLKcat | 2021 | 0.64 | Sequence + Distance Graph |
 | UniKP | 2023 | 0.68 | ProtT5 + SMILES |
 | MPEK | 2023 | 0.70 | ESM-2 + SMILES |
-| **VibroPredict** | **2025** | **>0.75** | **ProtT5 + VDOS + ChemBERTa** |
+| CatPred | 2025 | 0.79 | Sequence + SMILES |
+
+> **VibroPredict is not yet benchmarked.** `benchmarks/benchmarks.json` is a
+> dry-run (`results: []`); no VibroPredict R² has been produced on a public
+> split. A controlled test of the physics branch (thermophile/mesophile homolog
+> pairs) came back **negative** — see [`docs/PHYSICS_SIGNAL_VALIDATION.md`](docs/PHYSICS_SIGNAL_VALIDATION.md)
+> and the full [`AUDIT.md`](AUDIT.md). Treat the physics-informed advantage as an
+> open research question, not a demonstrated result, until a real benchmark run
+> with the (now-fixed) ablation is in.
 
 ## Quick Start
 
@@ -43,7 +53,7 @@ git clone https://github.com/jayhemnani9910/nobel-dataintelligence.git
 cd nobel-dataintelligence
 conda env create -f environment.yml && conda activate quantum_decoder
 pip install -r requirements.txt
-python -m pytest tests/ -v  # 103+ tests
+python -m pytest tests/ vibropredict/tests/ -v  # 180+ tests
 ```
 
 ## Usage
@@ -156,7 +166,7 @@ python -m src.cli cafa5 --data-dir ./data/cafa5 --top-k-terms 25
 │   └── evaluation/         # Ablation, benchmarks, plots
 ├── notebooks/              # 4 QDD notebooks
 ├── vibropredict/notebooks/ # 4 VibroPredict notebooks
-├── tests/                  # 103+ unit tests
+├── tests/                  # 180+ unit tests
 ├── demo/                   # Interactive GitHub Pages demo
 └── docs/                   # Phase 2 report, future plans
 ```

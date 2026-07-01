@@ -7,7 +7,6 @@ and split datasets.
 """
 
 import logging
-from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -34,9 +33,7 @@ def log_transform_kcat(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def canonicalize_smiles(
-    df: pd.DataFrame, col: str = "substrate_smiles"
-) -> pd.DataFrame:
+def canonicalize_smiles(df: pd.DataFrame, col: str = "substrate_smiles") -> pd.DataFrame:
     """
     Canonicalize SMILES strings using RDKit.
 
@@ -53,7 +50,7 @@ def canonicalize_smiles(
 
     df = df.copy()
 
-    def _canon(smiles: Optional[str]) -> Optional[str]:
+    def _canon(smiles: str | None) -> str | None:
         if not isinstance(smiles, str) or not smiles.strip():
             return None
         mol = Chem.MolFromSmiles(smiles)
@@ -72,7 +69,7 @@ def canonicalize_smiles(
 
 def compute_drfp(
     substrate_smiles: str,
-    product_smiles: Optional[str],
+    product_smiles: str | None,
     n_bits: int = 512,
 ) -> np.ndarray:
     """
@@ -93,7 +90,7 @@ def compute_drfp(
     from rdkit import Chem  # type: ignore
     from rdkit.Chem import AllChem  # type: ignore
 
-    def _morgan(smiles: Optional[str]) -> Optional[np.ndarray]:
+    def _morgan(smiles: str | None) -> np.ndarray | None:
         if not isinstance(smiles, str) or not smiles.strip():
             return None
         mol = Chem.MolFromSmiles(smiles)
@@ -120,7 +117,7 @@ def cluster_split(
     train_frac: float = 0.8,
     val_frac: float = 0.1,
     seed: int = 42,
-) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Split a DataFrame into train / validation / test sets.
 
@@ -145,10 +142,8 @@ def cluster_split(
     n_val = int(n * val_frac)
 
     train_df = df.iloc[:n_train].copy()
-    val_df = df.iloc[n_train:n_train + n_val].copy()
-    test_df = df.iloc[n_train + n_val:].copy()
+    val_df = df.iloc[n_train : n_train + n_val].copy()
+    test_df = df.iloc[n_train + n_val :].copy()
 
-    logger.info(
-        f"Split {n} rows -> train={len(train_df)}, val={len(val_df)}, test={len(test_df)}"
-    )
+    logger.info(f"Split {n} rows -> train={len(train_df)}, val={len(val_df)}, test={len(test_df)}")
     return train_df, val_df, test_df

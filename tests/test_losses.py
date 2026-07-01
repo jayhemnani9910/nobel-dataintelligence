@@ -1,17 +1,16 @@
 """Tests for custom loss functions."""
 
 import unittest
+
 import torch
 import torch.nn as nn
 
 from src.models.losses import (
-    PearsonCorrelationLoss,
-    SpearmanCorrelationLoss,
+    CombinedLoss,
     ContrastiveLoss,
     FocalLoss,
-    WeightedBCELoss,
-    CombinedLoss,
-    MarginRankingLossCustom,
+    PearsonCorrelationLoss,
+    SpearmanCorrelationLoss,
 )
 
 
