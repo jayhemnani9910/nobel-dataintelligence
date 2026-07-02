@@ -136,9 +136,9 @@ logic. The 39 targeted model/training/ablation/loss tests pass.
 | Regression guard | New test loads the real epoch10 checkpoint and exercises the short-seq alignment path | `tests/test_inference.py` | passes |
 
 **Regression pass:** full suite **191 passed, 0 skipped** (was 180 passed / 10
-skipped at audit start). Net: +1 new regression test, and the 10 formerly-skipped
-GNN tests now execute (torch_geometric present) and pass. No pre-existing test
-broke.
+skipped at audit start). Net: +1 new regression test, and all 10 formerly-skipped
+tests now execute (0 skipped) — 8 of them the `test_models` GNN tests unblocked by
+installing torch_geometric — and pass. No pre-existing test broke.
 
 **Not changed (deliberately):**
 - Placeholder `data/kaggle` and `data/cafa5` left as-is — they let the pipeline
