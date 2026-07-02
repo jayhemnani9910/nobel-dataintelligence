@@ -53,8 +53,15 @@ git clone https://github.com/jayhemnani9910/nobel-dataintelligence.git
 cd nobel-dataintelligence
 conda env create -f environment.yml && conda activate quantum_decoder
 pip install -r requirements.txt
+pip install -e .                                # makes `src`/`qdd` importable for the CLI
 python -m pytest tests/ vibropredict/tests/ -v  # 180+ tests
 ```
+
+> [!NOTE]
+> The CLI examples below use `python -m src.cli`, which requires the editable
+> install above (`pip install -e .`) or `PYTHONPATH=.`. After `pip install -e .`
+> the console script `qdd …` also works (e.g. `qdd predict-kcat …`). On some
+> sandboxed setups PyTorch needs `KMP_AFFINITY=disabled` in the environment.
 
 ## Usage
 

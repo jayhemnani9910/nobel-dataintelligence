@@ -53,3 +53,35 @@ def test_missing_checkpoint_error_is_honest(tmp_path):
     msg = str(exc.value)
     assert "best_model_epoch1.pt" in msg
     assert "stub" in msg.lower() or "smoke" in msg.lower()
+
+
+_REAL_CKPT = Path(__file__).resolve().parent.parent / "checkpoints" / "best_model_epoch10.pt"
+
+
+@pytest.mark.skipif(
+    not (_REAL_CKPT.exists() and (_PDB_DIR / "6eqe.pdb").exists()),
+    reason="real checkpoint / bundled PDB not present",
+)
+def test_predict_stability_loads_real_checkpoint_and_runs():
+    """Regression for the audit CRITICAL + coords/features fixes:
+
+    1. num_go_terms is inferred from the checkpoint (the real epoch10 weights
+       use 10000; hardcoding 100 caused a cafa_head size-mismatch RuntimeError).
+    2. When the sequence is shorter than the structure's CA count, coords AND
+       features are clipped to a common length (previously only features were
+       'truncated' to the larger value, leaving edge indices out of range and
+       raising IndexError inside GATv2Conv).
+
+    Only runs when torch_geometric (GNN backend) is importable.
+    """
+    pytest.importorskip("torch_geometric")
+    # Intentionally use a short sequence to exercise the mismatch-alignment path.
+    result = inference.predict_stability(
+        sequence="MKTIIALSYIFCLVFA",
+        pH=7.0,
+        checkpoint_path=str(_REAL_CKPT),
+        pdb_path=str(_PDB_DIR / "6eqe.pdb"),
+    )
+    assert "predicted_tm" in result
+    assert isinstance(result["predicted_tm"], float)
+    assert result["sequence_length"] == 16

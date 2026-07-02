@@ -58,10 +58,13 @@ def _resolve_checkpoint(checkpoint_path: Path) -> Path:
     """Validate a checkpoint path, raising a helpful error if missing.
 
     Lists any checkpoints actually present in the directory so the user knows
-    what is available. Note: the ``best_model_epoch*.pt`` files bundled in the
-    repo are toy artifacts from the training smoke test (a 2-parameter linear
-    stub) and are NOT compatible with the inference model architectures — do
-    not point ``--checkpoint`` at them.
+    what is available. Note on the bundled ``best_model_epoch*.pt`` files: epochs
+    1-3 are 2-parameter linear stubs from the training smoke test (~4 KB) and are
+    NOT usable; epochs 6/9/10 are real ~47 MB ``VibroStructuralModel`` checkpoints
+    (~5.76 M params) that load into ``predict_stability`` (``num_go_terms`` is
+    inferred from the checkpoint). None of them were trained on real stability
+    data, so their predictions are not physically meaningful — they exercise the
+    pipeline, they do not provide a validated model.
     """
     checkpoint_path = Path(checkpoint_path)
     if checkpoint_path.exists():
@@ -71,8 +74,9 @@ def _resolve_checkpoint(checkpoint_path: Path) -> Path:
     available = sorted(p.name for p in parent.glob("*.pt")) if parent.exists() else []
     hint = (
         f" Checkpoints found in {parent}/: {available}."
-        " (Note: bundled best_model_epoch*.pt are toy smoke-test stubs, not"
-        " trained inference models.)"
+        " (Note: bundled best_model_epoch1-3.pt are 2-param smoke-test stubs;"
+        " epoch6/9/10 are real VibroStructuralModel weights that load but were"
+        " not trained on real stability data.)"
         if available
         else f" No .pt checkpoints found in {parent}/."
     )
@@ -112,15 +116,22 @@ def predict_stability(
     # Load checkpoint
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
 
-    # Reconstruct model
+    # Reconstruct model. The CAFA head width (num_go_terms) is a property of the
+    # trained checkpoint, not a fixed constant: bundled real checkpoints were
+    # trained with num_go_terms=10000. Infer it from the checkpoint so the
+    # state_dict loads regardless of how the model was trained (hardcoding 100
+    # caused a cafa_head size-mismatch RuntimeError on the real weights).
+    state_dict = checkpoint["model_state_dict"]
+    cafa_weight = state_dict.get("cafa_head.6.weight")
+    num_go_terms = int(cafa_weight.shape[0]) if cafa_weight is not None else 100
     model = VibroStructuralModel(
         latent_dim=128,
         gnn_input_dim=24,
         fusion_type="bilinear",
         dropout=0.0,  # No dropout at inference
-        num_go_terms=100,
+        num_go_terms=num_go_terms,
     )
-    model.load_state_dict(checkpoint["model_state_dict"])
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
 
@@ -133,13 +144,21 @@ def predict_stability(
         _ca = _pr.parsePDB(pdb_path).select("name CA")
         coords = torch.tensor(_ca.getCoords(), dtype=torch.float32)
         if coords.shape[0] != len(sequence):
+            # Align coords and per-residue features to a common length. Truncating
+            # only `features` to the (larger) CA count is a no-op that leaves the
+            # graph with N_feat nodes but N_ca coordinates, so edge indices point
+            # past the node-feature matrix (IndexError in GATv2Conv). Clip BOTH to
+            # the shorter length so node features and coordinates always agree.
+            n_common = min(coords.shape[0], features.shape[0])
             logger.warning(
                 "Structure has %d CA atoms but sequence length is %d; "
-                "using structure coordinates and truncating features to match.",
+                "using the first %d residues so coordinates and features match.",
                 coords.shape[0],
                 len(sequence),
+                n_common,
             )
-            features = features[: coords.shape[0]]
+            coords = coords[:n_common]
+            features = features[:n_common]
     else:
         logger.warning(
             "No structure provided: building an extended-chain graph "
