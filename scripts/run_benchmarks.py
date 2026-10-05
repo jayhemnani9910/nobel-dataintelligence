@@ -18,7 +18,8 @@ Supports three operating modes:
             --vdos-dir data/spectral/
 
   2. Dry run (no checkpoint, no data — produces a structural report with
-     every VibroPredict row marked `pending`, useful for shaping the report):
+     every VibroPredict row marked `pending`, useful for shaping the report;
+     written to benchmarks_dry_run.json / PHASE4_BENCHMARKS_dry_run.md):
         python scripts/run_benchmarks.py --dry-run
 
   3. Baselines only (skip VibroPredict; useful when no checkpoint exists yet
@@ -41,6 +42,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
+# Make `python scripts/run_benchmarks.py` find the vibropredict package
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +91,9 @@ def _get_env_dump() -> dict:
 def _compute_metrics(predictions: np.ndarray, targets: np.ndarray) -> dict:
     from vibropredict.training.metrics import compute_all_metrics
 
-    return compute_all_metrics(predictions, targets)
+    metrics = compute_all_metrics(predictions, targets)
+    metrics["mae"] = float(np.mean(np.abs(np.ravel(predictions) - np.ravel(targets))))
+    return metrics
 
 
 def _fmt(value: Any, spec: str = ".4f") -> str:
@@ -131,6 +137,12 @@ def _run_vibropredict(
         sequence = str(row.get("sequence", ""))
         log_kcat = float(row["log_kcat"])
         substrate_smiles = str(row.get("substrate_smiles", ""))
+        # Same handling as EnzymeKineticsDataset, so the DRFP branch matches training
+        product_smiles = (
+            str(row.get("product_smiles", ""))
+            if pd.notna(row.get("product_smiles"))
+            else ""
+        )
 
         vdos_path = Path(vdos_dir) / f"{uniprot_id}_vdos.npy"
         if vdos_path.exists():
@@ -149,6 +161,7 @@ def _run_vibropredict(
                 sequences=[sequence],
                 vdos=vdos_tensor.to(device),
                 substrate_smiles=[substrate_smiles],
+                product_smiles=[product_smiles],
             )
 
         predictions.append(logkcat.squeeze().item())
@@ -343,9 +356,14 @@ def _write_json_report(
     logger.info(f"JSON report written to {output_path}")
 
 
-def _table_row(model_label: str, metrics: dict | None, bold: bool) -> str:
+def _table_row(
+    model_label: str, metrics: dict | None, bold: bool, error: str | None = None
+) -> str:
     """Render one row of a model/metrics table."""
-    if metrics is None:
+    if error is not None:
+        reason = " ".join(str(error).split()).replace("|", "/")
+        cells = [f"failed: {reason}", "failed", "failed", "failed"]
+    elif metrics is None:
         cells = ["pending", "pending", "pending", "pending"]
     else:
         cells = [
@@ -380,12 +398,14 @@ def _split_section(
 
     vp_entry = vibropredict_results.get(split_key, {})
     vp_metrics = vp_entry.get("metrics") if isinstance(vp_entry, dict) else None
-    lines.append(_table_row("VibroPredict", vp_metrics, bold=True))
+    vp_error = vp_entry.get("error") if isinstance(vp_entry, dict) else None
+    lines.append(_table_row("VibroPredict", vp_metrics, bold=True, error=vp_error))
 
     for name, splits in baseline_results.items():
         split_data = splits.get(split_key) if isinstance(splits, dict) else None
         metrics = split_data.get("metrics") if isinstance(split_data, dict) else None
-        lines.append(_table_row(name, metrics, bold=False))
+        error = split_data.get("error") if isinstance(split_data, dict) else None
+        lines.append(_table_row(name, metrics, bold=False, error=error))
 
     lines.append("")
     return lines
@@ -434,6 +454,8 @@ def _write_markdown_report(
                 summaries.append(
                     f"VibroPredict on {split_name}: R²={_fmt(metrics['r_squared'])}"
                 )
+            elif isinstance(entry, dict) and "error" in entry:
+                summaries.append(f"VibroPredict on {split_name}: failed")
         tldr = " | ".join(summaries) if summaries else "No results available."
         lines.extend(["> [!IMPORTANT]", f"> **TL;DR** — {tldr}", ""])
 
@@ -644,6 +666,14 @@ def main():
             ("random", random_splits["test"]),
             ("ood_ec_holdout", ood_splits["test"]),
         ]:
+            key_cols = [c for c in ("sequence", "substrate_smiles") if c in test_df]
+            n_missing = int(test_df[key_cols].isna().any(axis=1).sum())
+            if n_missing:
+                logger.warning(
+                    f"Skipping {n_missing} {split_label} test rows with missing sequence/SMILES"
+                )
+                test_df = test_df.dropna(subset=key_cols)
+
             logger.info("=" * 60)
             logger.info(f"Split: {split_label} ({len(test_df)} test samples)")
             logger.info("=" * 60)
@@ -675,15 +705,17 @@ def main():
 
         plot_paths = _generate_plots(plots_dir, vibropredict_results, baseline_results)
 
+    # A dry run must not overwrite a real report
+    suffix = "_dry_run" if mode == "dry-run" else ""
     _write_json_report(
-        output_dir / "benchmarks.json",
+        output_dir / f"benchmarks{suffix}.json",
         vibropredict_results,
         baseline_results,
         env_info,
         mode,
     )
     _write_markdown_report(
-        Path("docs/future/PHASE4_BENCHMARKS.md"),
+        Path(f"docs/future/PHASE4_BENCHMARKS{suffix}.md"),
         vibropredict_results,
         baseline_results,
         env_info,

@@ -380,6 +380,8 @@ class Logger:
         """Setup logger."""
         logger = logging.getLogger(name)
         logger.setLevel(level)
+        if logger.handlers:
+            return logger
 
         handler = logging.StreamHandler()
         formatter = logging.Formatter(

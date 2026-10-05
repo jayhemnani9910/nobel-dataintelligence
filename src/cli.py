@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import shutil
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -131,6 +132,15 @@ def run_novozymes(
             early_stopping_patience=max(3, min(10, epochs // 2)),
             task="novozymes",
         )
+        # Publish the best weights where predict-stability looks by default
+        if trainer.best_epoch > 0:
+            best_ckpt = Path("./checkpoints/novozymes_best.pt")
+            _ensure_dir(best_ckpt.parent)
+            shutil.copyfile(
+                trainer.checkpoint_dir / f"best_model_epoch{trainer.best_epoch}.pt",
+                best_ckpt,
+            )
+            logger.info(f"Best checkpoint copied to {best_ckpt}")
 
     # Predict on test.csv
     df_test = pd.read_csv(test_csv)

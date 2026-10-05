@@ -180,7 +180,8 @@ class SpectralGenerator:
         # Convolve
         convolved = convolve(spectrum, gaussian, mode="same")
 
-        return convolved / np.max(convolved)
+        denom = np.max(convolved)
+        return convolved / denom if denom > 0 else convolved
 
     def extract_spectral_features(self, spectrum: np.ndarray) -> dict:
         """
@@ -206,18 +207,17 @@ class SpectralGenerator:
                 "num_peaks": 0,
             }
 
+        centroid = float(np.sum(self.freq_axis * spectrum) / total_intensity)
         features = {
             "integral": total_intensity,  # Total intensity
             "peak_height": float(np.max(spectrum)),  # Highest peak
             "peak_frequency": float(
                 self.freq_axis[int(np.argmax(spectrum))]
             ),  # Frequency of highest peak
-            "centroid": float(
-                np.sum(self.freq_axis * spectrum) / total_intensity
-            ),  # Centroid
+            "centroid": centroid,
             "std_dev": float(
                 np.sqrt(
-                    np.sum(((self.freq_axis - np.mean(self.freq_axis)) ** 2) * spectrum)
+                    np.sum(((self.freq_axis - centroid) ** 2) * spectrum)
                     / total_intensity
                 )
             ),

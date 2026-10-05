@@ -362,6 +362,8 @@ class GNMAnalyzer:
             self.structure = structure
 
         self.ca_atoms = self.structure.select("ca")
+        if self.ca_atoms is None:
+            raise ValueError("No C-alpha atoms found in structure")
         self.n_atoms = self.ca_atoms.numAtoms()
 
         # Initialize GNM
@@ -429,7 +431,8 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
 
     # Compute delta properties
     delta_s_vib = s_vib2 - s_vib1
-    freq_shift = np.mean(freq2 - freq1)
+    n_common = min(len(freq1), len(freq2))
+    freq_shift = np.mean(freq2[:n_common] - freq1[:n_common])
 
     result = {
         "structure1": Path(pdb1_path).name,

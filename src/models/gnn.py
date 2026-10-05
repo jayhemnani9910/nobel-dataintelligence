@@ -42,7 +42,7 @@ class ProteinGNN(nn.Module):
 
     def __init__(
         self,
-        input_dim: int = 22,
+        input_dim: int = 24,
         hidden_dim: int = 64,
         output_dim: int = 128,
         num_layers: int = 3,
@@ -53,7 +53,7 @@ class ProteinGNN(nn.Module):
         Initialize Protein GNN.
 
         Args:
-            input_dim: Input feature dimension (amino acids: 20 + 2 special)
+            input_dim: Input feature dimension (22 one-hot + hydrophobicity + confidence)
             hidden_dim: Hidden dimension in GAT layers
             output_dim: Output embedding dimension
             num_layers: Number of GAT layers

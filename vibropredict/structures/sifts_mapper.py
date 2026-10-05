@@ -7,6 +7,7 @@ experimentally resolved PDB structures, with local JSON caching.
 
 import json
 import logging
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -45,6 +46,11 @@ class SIFTSMapper:
         Returns:
             Parsed JSON response dict, or empty dict on error.
         """
+        # Reject IDs that could escape cache_dir (e.g. containing '/' or '..')
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", str(uniprot_id)):
+            logger.warning(f"Invalid UniProt ID: {uniprot_id!r}")
+            return {}
+
         cache_file = self.cache_dir / f"{uniprot_id}.json"
 
         if cache_file.exists():

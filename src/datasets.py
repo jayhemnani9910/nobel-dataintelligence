@@ -140,7 +140,9 @@ class ProteinStructureDataset(Dataset):
         label = None
         global_features = None
         if self.metadata_df is not None:
-            row = self.metadata_df[self.metadata_df["pdb_id"] == pdb_id]
+            row = self.metadata_df[
+                self.metadata_df["pdb_id"].astype(str).str.lower() == pdb_id
+            ]
             if not row.empty:
                 if "label" in row.columns:
                     label = float(row["label"].values[0])
@@ -167,7 +169,7 @@ class ProteinStructureDataset(Dataset):
             return None
 
         coords = torch.tensor(ca.getCoords(), dtype=torch.float32)
-        sequence = pr.getSequence(ca)
+        sequence = ca.getSequence()
         features = GraphConstruction.construct_residue_features(sequence)
 
         graph = GraphConstruction.construct_ca_graph(
@@ -225,9 +227,15 @@ class NovozymesDataset(Dataset):
                 updates = pd.read_csv(updates_file)
                 logger.info(f"Applying {len(updates)} updates to training data")
                 # Update rows
+                cols = [c for c in updates.columns if c in self.df.columns]
                 for _, row in updates.iterrows():
                     mask = self.df["seq_id"] == row["seq_id"]
-                    self.df.loc[mask] = row
+                    # Kaggle marks deleted rows with an all-NaN update
+                    if pd.isna(row["protein_sequence"]):
+                        self.df = self.df[~mask]
+                    else:
+                        self.df.loc[mask, cols] = row[cols].values
+                self.df = self.df.reset_index(drop=True)
 
         # Load structure
         self.structure = None

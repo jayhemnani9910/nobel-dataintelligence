@@ -6,7 +6,6 @@
 <title>Quantum Data Decoder — VibroPredict</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
@@ -87,7 +86,7 @@ body::before{
   background:rgba(34,211,238,.04);
   animation:fadeInUp .8s ease both;
 }
-.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--spec3);animation:pulse 2s infinite}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:#f59e0b;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .hero h1{
   font-size:clamp(2.8rem,7vw,5.5rem);font-weight:800;
@@ -258,8 +257,9 @@ body::before{
 @media(max-width:768px){.bench-grid{grid-template-columns:1fr}}
 .bench-card{
   background:var(--bg2);border:1px solid var(--border);border-radius:16px;
-  padding:32px;
+  padding:32px;min-width:0;
 }
+@media(max-width:480px){.bench-card{padding:20px}.bench-table th,.bench-table td{padding:8px 6px}}
 .bench-card h3{font-size:1.1rem;font-weight:600;margin-bottom:20px;color:var(--text-bright)}
 .bench-table{width:100%;border-collapse:collapse}
 .bench-table th,.bench-table td{
@@ -277,11 +277,17 @@ body::before{
   height:6px;border-radius:3px;display:block;margin-top:4px;
   transition:width .8s ease;
 }
-#ablationChart{max-height:260px}
+.bench-table td.na{color:var(--text-dim);font-weight:400}
+.bench-note{font-size:.78rem;color:var(--text-dim);margin-top:16px;line-height:1.6}
+.bench-note a,.physics-card a{color:var(--accent);text-decoration:none}
+.bench-note a:hover,.physics-card a:hover{text-decoration:underline}
+.physics-card h3 .tag{font-family:var(--font-mono);font-size:.7rem;font-weight:500;color:var(--spec1);border:1px solid var(--spec1);border-radius:100px;padding:2px 10px;margin-left:8px;vertical-align:middle}
+.physics-card p{font-size:.85rem;color:var(--text-dim);line-height:1.6;margin-bottom:16px}
+.physics-card p strong{color:var(--text)}
 
 /* ═══════════ CODE ═══════════ */
 .code-section{background:var(--bg2)}
-.code-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;margin-top:48px}
+.code-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:24px;margin-top:48px}
 .code-block{
   background:var(--bg);border:1px solid var(--border);border-radius:16px;
   overflow:hidden;
@@ -344,6 +350,7 @@ footer a:hover{text-decoration:underline}
 /* ═══════════ SCROLL REVEAL ═══════════ */
 .reveal{opacity:0;transform:translateY(30px);transition:all .7s ease}
 .reveal.visible{opacity:1;transform:translateY(0)}
+@media(max-width:480px){.slider-group input[type=range]{width:110px}.bench-card{overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -353,7 +360,7 @@ footer a:hover{text-decoration:underline}
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
   <div class="hero-content">
-    <div class="hero-badge"><span class="dot"></span> All Tests Passing &middot; Phase 3 Complete</div>
+    <div class="hero-badge"><span class="dot"></span> Research prototype &middot; Not yet benchmarked</div>
     <h1>Quantum Data<br><span class="gradient">Decoder</span></h1>
     <p class="hero-sub">
       Predicting protein stability and enzyme kinetics through the physics of molecular vibrations.
@@ -377,11 +384,11 @@ footer a:hover{text-decoration:underline}
 <div class="stats-bar">
   <div class="container">
     <div class="stats-grid">
-      <div class="stat-item"><div class="stat-num">6,800+</div><div class="stat-label">Lines of Code</div></div>
-      <div class="stat-item"><div class="stat-num">103+</div><div class="stat-label">Unit Tests</div></div>
+      <div class="stat-item"><div class="stat-num">10,100+</div><div class="stat-label">Lines of Python</div></div>
+      <div class="stat-item"><div class="stat-num">232</div><div class="stat-label">Tests</div></div>
       <div class="stat-item"><div class="stat-num">3</div><div class="stat-label">Neural Encoders</div></div>
       <div class="stat-item"><div class="stat-num">8</div><div class="stat-label">Notebooks</div></div>
-      <div class="stat-item"><div class="stat-num">R&sup2;&gt;0.75</div><div class="stat-label">Target Accuracy</div></div>
+      <div class="stat-item"><div class="stat-num">Pending</div><div class="stat-label">Benchmark</div></div>
     </div>
   </div>
 </div>
@@ -393,20 +400,20 @@ footer a:hover{text-decoration:underline}
     <h2 class="reveal">Proteins are vibrating machines.<br>We decode their frequencies.</h2>
     <p class="section-desc reveal">
       Traditional models treat proteins as static structures. But catalysis depends on dynamics &mdash;
-      the collective vibrations that gate conformational changes. QDD is the first framework to explicitly
-      encode the Vibrational Density of States (VDOS) as a predictive feature.
+      the collective vibrations that gate conformational changes. QDD explicitly encodes the Vibrational
+      Density of States (VDOS) as a predictive feature &mdash; and tests whether it actually helps.
     </p>
     <div class="divider reveal"></div>
     <div class="problem-grid">
       <div class="problem-card reveal">
         <div class="card-icon physics">&#x2728;</div>
         <h3>Physics-Informed</h3>
-        <p>Normal Mode Analysis extracts vibrational frequencies from protein structures. These encode the thermodynamic landscape that governs stability and function.</p>
+        <p>Normal Mode Analysis extracts vibrational frequencies from protein structures. The hypothesis: they encode the thermodynamic landscape that governs stability and function. A controlled test has not yet supported it.</p>
       </div>
       <div class="problem-card reveal">
         <div class="card-icon spectral">&#x1F4C8;</div>
         <h3>Spectral Fingerprints</h3>
-        <p>Each protein has a unique VDOS spectrum &mdash; a 1D signal encoding all vibrational modes. Our 1D CNN learns patterns invisible to sequence-only models.</p>
+        <p>Each protein has a unique VDOS spectrum &mdash; a 1D signal encoding all vibrational modes. A 1D CNN encodes it as its own branch, so the model can test whether it adds signal beyond sequence.</p>
       </div>
       <div class="problem-card reveal">
         <div class="card-icon fusion">&#x1F504;</div>
@@ -469,7 +476,7 @@ footer a:hover{text-decoration:underline}
     <h2 class="reveal">Explore the Vibrational Spectrum</h2>
     <p class="section-desc reveal">
       Adjust the broadening parameter to see how Lorentzian convolution transforms discrete normal modes
-      into a continuous Density of States. This is exactly what the CNN encoder sees.
+      into a continuous Density of States. The spectrum uses the same 1000-point, 0&ndash;500 cm&#8315;&sup1; format the CNN encoder takes as input.
     </p>
     <div class="divider reveal"></div>
     <div class="vdos-container reveal">
@@ -499,12 +506,12 @@ footer a:hover{text-decoration:underline}
 <section>
   <div class="container">
     <span class="section-label reveal">Performance</span>
-    <h2 class="reveal">Outperforming the state of the art</h2>
-    <p class="section-desc reveal">VibroPredict targets R&sup2; &gt; 0.75 on the KinHub-27k benchmark, a substantial improvement over existing enzyme kinetics models.</p>
+    <h2 class="reveal">Benchmark plan</h2>
+    <p class="section-desc reveal">VibroPredict targets R&sup2; &gt; 0.75 on the KinHub-27k benchmark. That target has not been measured yet: no VibroPredict R&sup2; has been produced on a public split, and the benchmark file in the repo is a dry run.</p>
     <div class="divider reveal"></div>
     <div class="bench-grid">
       <div class="bench-card reveal">
-        <h3>Model Comparison</h3>
+        <h3>Published baselines <span style="font-weight:400;color:var(--text-dim);font-size:.85rem">(reported on their own datasets/splits)</span></h3>
         <table class="bench-table">
           <thead><tr><th>Model</th><th>Year</th><th>R&sup2;</th><th>Features</th></tr></thead>
           <tbody>
@@ -512,13 +519,26 @@ footer a:hover{text-decoration:underline}
             <tr><td>DLKcat</td><td>2021</td><td>0.64<span class="metric-bar" style="width:64%;background:var(--text-dim)"></span></td><td>Seq + Graph</td></tr>
             <tr><td>UniKP</td><td>2023</td><td>0.68<span class="metric-bar" style="width:68%;background:var(--spec2)"></span></td><td>ProtT5 + SMILES</td></tr>
             <tr><td>MPEK</td><td>2023</td><td>0.70<span class="metric-bar" style="width:70%;background:var(--spec2)"></span></td><td>ESM-2 + SMILES</td></tr>
-            <tr class="highlight"><td>VibroPredict</td><td>2025</td><td>&gt;0.75<span class="metric-bar" style="width:76%;background:var(--accent)"></span></td><td>Seq + VDOS + Chem</td></tr>
+            <tr><td>CatPred</td><td>2025</td><td>0.79<span class="metric-bar" style="width:79%;background:var(--spec2)"></span></td><td>Seq + SMILES</td></tr>
+            <tr class="highlight"><td>VibroPredict</td><td>2025</td><td class="na">target &gt; 0.75 &mdash; not measured</td><td>Seq + VDOS + Chem</td></tr>
           </tbody>
         </table>
+        <p class="bench-note">Literature values, not a head-to-head comparison: each model was evaluated on its own data and split.</p>
       </div>
-      <div class="bench-card reveal">
-        <h3>Ablation Study</h3>
-        <canvas id="ablationChart"></canvas>
+      <div class="bench-card physics-card reveal">
+        <h3>Physics-signal test: negative<span class="tag">n = 27 pairs</span></h3>
+        <p>Does vibrational physics separate thermostable proteins? We compared <strong>27 thermophile/mesophile enzyme homolog pairs</strong> (X-ray &le; 2.5&nbsp;&Aring;, first chain) on each feature&rsquo;s predicted direction.</p>
+        <table class="bench-table">
+          <thead><tr><th>Feature (hypothesis)</th><th>Pairs matching</th><th>Wilcoxon p</th></tr></thead>
+          <tbody>
+            <tr><td>Entropy/res &mdash; thermo lower</td><td>12 / 27</td><td>0.83</td></tr>
+            <tr><td>Softest mode &mdash; thermo stiffer</td><td>13 / 27</td><td>0.47</td></tr>
+            <tr><td>Mean MSF &mdash; thermo more rigid</td><td>14 / 27</td><td>0.46</td></tr>
+            <tr><td>Mean VDOS freq &mdash; thermo higher</td><td>13 / 27</td><td>0.39</td></tr>
+            <tr><td>Contact density &mdash; thermo denser</td><td>13 / 27</td><td>0.81</td></tr>
+          </tbody>
+        </table>
+        <p class="bench-note">Every feature sits at chance (44&ndash;52&nbsp;%); none approaches significance. An earlier n&nbsp;=&nbsp;8 pilot was also negative. The physics branch is <strong>unproven</strong>, not validated. <a href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/docs/PHYSICS_SIGNAL_VALIDATION.md" target="_blank">Read the full write-up &rarr;</a></p>
       </div>
     </div>
   </div>
@@ -546,7 +566,7 @@ logkcat, gates = model(
     substrate_smiles=["CC(=O)O"],
 )
 
-print(f"k_cat = {10**logkcat:.1f} s⁻¹")
+print(f"k_cat = {10**logkcat.item():.1f} s⁻¹")
 print(f"Attention: seq={gates[0,0]:.2f} "
       f"spec={gates[0,1]:.2f} "
       f"chem={gates[0,2]:.2f}")</code></pre>
@@ -608,7 +628,7 @@ best_loss = trainer.fit(
         <div class="nb-num">07</div><h4>Model Training</h4><p>Train with MM-Drop and MutantRankingLoss</p>
       </a>
       <a class="nb-card reveal" href="https://github.com/jayhemnani9910/nobel-dataintelligence/blob/master/vibropredict/notebooks/08_ablation_study.ipynb" target="_blank">
-        <div class="nb-num">08</div><h4>Ablation Study</h4><p>Branch contribution analysis and SOTA comparison</p>
+        <div class="nb-num">08</div><h4>Ablation Study</h4><p>Branch ablation and baseline comparison (template; needs a trained checkpoint, not yet run)</p>
       </a>
     </div>
   </div>
@@ -758,48 +778,6 @@ function renderVDOS() {
 }
 
 document.getElementById('broadenSlider').addEventListener('input', renderVDOS);
-
-// ═══════════ ABLATION CHART ═══════════
-const ablCtx = document.getElementById('ablationChart');
-new Chart(ablCtx, {
-  type: 'bar',
-  data: {
-    labels: ['Full Model', 'No Spectral', 'No Sequence', 'No Chemical'],
-    datasets: [{
-      label: 'R\u00B2',
-      data: [0.76, 0.69, 0.58, 0.62],
-      backgroundColor: ['#22d3ee', '#f472b6', '#a78bfa', '#34d399'],
-      borderRadius: 6,
-      borderSkipped: false,
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#111827',
-        titleFont: { family: 'JetBrains Mono', size: 12 },
-        bodyFont: { family: 'JetBrains Mono', size: 12 },
-        borderColor: '#334155',
-        borderWidth: 1,
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: false, min: 0.4, max: 0.85,
-        grid: { color: 'rgba(100,116,139,.15)' },
-        ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 11 }},
-        title: { display: true, text: 'R\u00B2', color: '#64748b', font: { family: 'JetBrains Mono', size: 12 }}
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 }}
-      }
-    }
-  }
-});
 </script>
 </body>
 </html>

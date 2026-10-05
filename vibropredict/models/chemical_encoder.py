@@ -59,9 +59,11 @@ class ChemicalEncoder(nn.Module):
 
         logger.info(f"Loading ChemBERTa model: {self.smiles_model_name}")
         self._tokenizer = AutoTokenizer.from_pretrained(self.smiles_model_name)
-        self._smiles_encoder = AutoModel.from_pretrained(self.smiles_model_name)
-        self._smiles_encoder = self._smiles_encoder.to(device)
-        self._smiles_encoder.eval()
+        encoder = AutoModel.from_pretrained(self.smiles_model_name).to(device)
+        encoder.eval()
+        # Bypass nn.Module registration: the frozen encoder stays out of
+        # state_dict() and is not switched back to train mode by .train().
+        object.__setattr__(self, "_smiles_encoder", encoder)
         logger.info("ChemBERTa model loaded successfully")
 
     def _compute_drfp(self, substrate: str, product: str | None = None) -> torch.Tensor:
@@ -134,6 +136,8 @@ class ChemicalEncoder(nn.Module):
 
         if self._smiles_encoder is None:
             self._load_model(device)
+        elif next(self._smiles_encoder.parameters()).device != device:
+            self._smiles_encoder.to(device)
 
         # --- SMILES branch ---
         tokens = self._tokenizer(

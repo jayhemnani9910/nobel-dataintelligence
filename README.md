@@ -76,7 +76,7 @@ logkcat, gates = model(
     vdos=vdos_tensor,
     substrate_smiles=["CC(=O)O"],
 )
-print(f"k_cat = {10**logkcat:.1f} s⁻¹")
+print(f"k_cat = {10 ** logkcat.item():.1f} s⁻¹")
 print(
     f"Attention gates: seq={gates[0, 0]:.2f} spec={gates[0, 1]:.2f} chem={gates[0, 2]:.2f}"
 )

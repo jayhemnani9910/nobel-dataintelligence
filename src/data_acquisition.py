@@ -198,7 +198,8 @@ class KaggleDataAcquisition:
             ],
             check=True,
         )
-        for file in self.output_dir.glob("*.zip"):
+        file = self.output_dir / f"{competition_name}.zip"
+        if file.exists():
             with zipfile.ZipFile(file, "r") as zip_ref:
                 zip_ref.extractall(self.output_dir)
             file.unlink()
@@ -268,8 +269,15 @@ class KaggleDataAcquisition:
             updates = pd.read_csv(updates_csv)
             logger.info(f"Applying updates: {updates.shape[0]} corrections")
             # Update rows as specified in train_updates.csv
+            cols = [c for c in updates.columns if c in df.columns]
             for _, row in updates.iterrows():
-                df.loc[df["seq_id"] == row["seq_id"]] = row
+                mask = df["seq_id"] == row["seq_id"]
+                # Kaggle marks deleted rows with an all-NaN update
+                if pd.isna(row["protein_sequence"]):
+                    df = df[~mask]
+                else:
+                    df.loc[mask, cols] = row[cols].values
+            df = df.reset_index(drop=True)
 
         return df
 

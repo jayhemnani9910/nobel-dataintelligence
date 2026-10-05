@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 from torch.utils.data import DataLoader
 
 logger = logging.getLogger(__name__)
@@ -203,6 +203,8 @@ class Trainer:
                 batch_count += 1
 
                 preds_for_metric = outputs
+                if task == "novozymes":
+                    preds_for_metric = outputs.reshape(labels.shape)
                 if task == "cafa5":
                     preds_for_metric = torch.sigmoid(outputs)
                 all_preds.append(preds_for_metric.cpu().numpy())
@@ -248,6 +250,7 @@ class Trainer:
         """
         logger.info(f"Training for {epochs} epochs on {self.device}")
         stopper = EarlyStopping(patience=early_stopping_patience)
+        best_file = None
 
         for epoch in range(1, epochs + 1):
             logger.info(f"\n{'=' * 60}")
@@ -266,7 +269,10 @@ class Trainer:
 
             # Learning rate scheduling
             if self.scheduler is not None:
-                self.scheduler.step(val_metrics["val_loss"])
+                if isinstance(self.scheduler, ReduceLROnPlateau):
+                    self.scheduler.step(val_metrics["val_loss"])
+                else:
+                    self.scheduler.step()
                 logger.info(
                     f"Learning rate: {self.optimizer.param_groups[0]['lr']:.6f}"
                 )
@@ -276,7 +282,8 @@ class Trainer:
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_epoch = epoch
-                self.save_checkpoint(f"best_model_epoch{epoch}.pt")
+                best_file = f"best_model_epoch{epoch}.pt"
+                self.save_checkpoint(best_file)
                 logger.info("New best validation loss!")
 
             if stopper.step(val_loss):
@@ -287,6 +294,10 @@ class Trainer:
                 break
             else:
                 logger.info(f"Patience: {stopper.counter}/{early_stopping_patience}")
+
+        # Leave the model holding the best-validation weights, not the last epoch's
+        if best_file is not None:
+            self.load_checkpoint(best_file)
 
         return self.best_val_loss
 

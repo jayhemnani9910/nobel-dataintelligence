@@ -257,6 +257,7 @@ class TrainerWithMMDrop:
         """
         logger.info(f"Training for {epochs} epochs on {self.device}")
         stopper = EarlyStopping(patience=patience)
+        best_path = None
 
         for epoch in range(1, epochs + 1):
             logger.info(f"\n{'=' * 60}")
@@ -274,7 +275,12 @@ class TrainerWithMMDrop:
             # Learning rate scheduling
             current_lr = self.optimizer.param_groups[0]["lr"]
             if self.scheduler is not None:
-                self.scheduler.step(val_metrics["val_loss"])
+                if isinstance(
+                    self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau
+                ):
+                    self.scheduler.step(val_metrics["val_loss"])
+                else:
+                    self.scheduler.step()
                 current_lr = self.optimizer.param_groups[0]["lr"]
                 logger.info(f"Learning rate: {current_lr:.6f}")
 
@@ -306,7 +312,7 @@ class TrainerWithMMDrop:
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.best_epoch = epoch
-                self.save_checkpoint(f"best_model_epoch{epoch}.pt")
+                best_path = self.save_checkpoint(f"best_model_epoch{epoch}.pt")
                 logger.info("New best validation loss!")
 
             if stopper.step(val_loss):
@@ -317,6 +323,14 @@ class TrainerWithMMDrop:
                 break
             else:
                 logger.info(f"Patience: {stopper.counter}/{patience}")
+
+        # Leave the model holding the best-validation weights, not the last epoch's
+        if best_path is not None:
+            checkpoint = torch.load(
+                best_path, map_location=self.device, weights_only=True
+            )
+            self.model.load_state_dict(checkpoint["model_state_dict"])
+            logger.info(f"Restored best weights from epoch {self.best_epoch}")
 
         if self.log_to_wandb and self._wandb is not None:
             self._wandb.finish()
@@ -336,6 +350,7 @@ class TrainerWithMMDrop:
             path,
         )
         logger.info(f"Checkpoint saved: {path}")
+        return path
 
     def load_checkpoint(self, filename: str):
         """Load model checkpoint."""

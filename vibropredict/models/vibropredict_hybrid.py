@@ -85,6 +85,19 @@ class VibroPredictHybrid(nn.Module):
             f"fusion_dim={fusion_dim}"
         )
 
+    def load_state_dict(self, state_dict, *args, **kwargs):
+        """Load weights, ignoring frozen pretrained encoder weights.
+
+        ProtT5 and ChemBERTa are frozen and loaded from the hub, so they are
+        not part of state_dict(). Older checkpoints still carry them.
+        """
+        state_dict = {
+            k: v
+            for k, v in state_dict.items()
+            if "._encoder." not in k and "._smiles_encoder." not in k
+        }
+        return super().load_state_dict(state_dict, *args, **kwargs)
+
     def forward(
         self,
         sequences: list[str],

@@ -102,9 +102,13 @@ class EnzymeKineticsDataset(Dataset):
         row = self.df.iloc[idx]
 
         uniprot_id = str(row["uniprot_id"])
-        sequence = str(row.get("sequence", ""))
+        sequence = str(row.get("sequence", "")) if pd.notna(row.get("sequence")) else ""
         log_kcat = float(row["log_kcat"])
-        substrate_smiles = str(row.get("substrate_smiles", ""))
+        substrate_smiles = (
+            str(row.get("substrate_smiles", ""))
+            if pd.notna(row.get("substrate_smiles"))
+            else ""
+        )
         product_smiles = (
             str(row.get("product_smiles", ""))
             if pd.notna(row.get("product_smiles"))

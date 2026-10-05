@@ -145,7 +145,7 @@ def predict_stability(
     if pdb_path is not None:
         import prody as _pr
 
-        _ca = _pr.parsePDB(pdb_path).select("name CA")
+        _ca = _pr.parsePDB(pdb_path).select("protein and name CA")
         coords = torch.tensor(_ca.getCoords(), dtype=torch.float32)
         if coords.shape[0] != len(sequence):
             # Align coords and per-residue features to a common length. Truncating

@@ -51,7 +51,7 @@ class MarginRankingLossCustom(nn.Module):
         # Convert target to PyTorch convention (-1 or 1)
         targets_pt = (targets > 0.5).float() * 2 - 1  # Convert [0,1] to [-1,1]
 
-        return self.loss_fn(scores_1.squeeze(), scores_2.squeeze(), targets_pt)
+        return self.loss_fn(scores_1.view(-1), scores_2.view(-1), targets_pt.view(-1))
 
 
 class PearsonCorrelationLoss(nn.Module):
@@ -261,7 +261,10 @@ class CombinedLoss(nn.Module):
 
         # Learnable temperature parameters for weight scaling
         self.log_weights = nn.ParameterDict(
-            {k: nn.Parameter(torch.tensor(0.0)) for k in loss_fns}
+            {
+                k: nn.Parameter(torch.tensor(float(initial_weights.get(k, 1.0))).log())
+                for k in loss_fns
+            }
         )
 
     def forward(self, **kwargs) -> tuple[torch.Tensor, dict]:

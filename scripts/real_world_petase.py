@@ -16,6 +16,7 @@ Outputs:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -23,7 +24,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import trapezoid
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.nma_analysis import ANMAnalyzer
 
 CASES = [
@@ -70,20 +73,20 @@ for case in CASES:
     # Spectral bookkeeping
     # src/nma_analysis.py builds its VDOS grid as np.linspace(0, 500, 1000) cm^-1
     freq_grid = np.linspace(0.0, 500.0, len(vdos))
-    vdos_integral = float(np.trapezoid(vdos, freq_grid))
+    vdos_integral = float(trapezoid(vdos, freq_grid))
     peak_freq = float(freq_grid[int(np.argmax(vdos))])
     low_freq_mask = freq_grid < 100.0
     low_freq_fraction = float(
-        np.trapezoid(vdos[low_freq_mask], freq_grid[low_freq_mask]) / vdos_integral
+        trapezoid(vdos[low_freq_mask], freq_grid[low_freq_mask]) / vdos_integral
     )
-    mean_freq = float(np.trapezoid(vdos * freq_grid, freq_grid) / vdos_integral)
+    mean_freq = float(trapezoid(vdos * freq_grid, freq_grid) / vdos_integral)
 
     results[name] = {
         "Tm_measured_C": case["Tm_measured_C"],
         "note": case["note"],
         "n_modes_used": len(positive),
-        "min_eigenvalue": float(positive.min()),
-        "mean_eigenvalue": float(positive.mean()),
+        "min_freq_cm1": float(positive.min()),
+        "mean_freq_cm1": float(positive.mean()),
         "vibrational_entropy_J_mol_K": float(entropy),
         "vdos_peak_freq_cm1": peak_freq,
         "vdos_mean_freq_cm1": mean_freq,

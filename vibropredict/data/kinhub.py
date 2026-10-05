@@ -53,19 +53,27 @@ class KinHubLoader:
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Drop rows with missing uniprot_id or k_cat.
+        Drop rows with missing uniprot_id, k_cat or substrate_smiles,
+        and rows with non-positive k_cat.
 
         Args:
             df: Input DataFrame.
 
         Returns:
-            Cleaned DataFrame with no nulls in key columns.
+            Cleaned DataFrame with no nulls in key columns and k_cat > 0.
         """
         before = len(df)
-        df = df.dropna(subset=["uniprot_id", "k_cat"]).copy()
+        df = df.dropna(subset=["uniprot_id", "k_cat", "substrate_smiles"]).copy()
         dropped = before - len(df)
         if dropped > 0:
-            logger.info(f"Dropped {dropped} rows with missing uniprot_id or k_cat")
+            logger.info(
+                f"Dropped {dropped} rows with missing uniprot_id, k_cat or substrate_smiles"
+            )
+
+        non_positive = df["k_cat"] <= 0
+        if non_positive.any():
+            logger.info(f"Dropped {int(non_positive.sum())} rows with k_cat <= 0")
+            df = df[~non_positive].copy()
         return df
 
     def resolve_ambiguities(self, df: pd.DataFrame) -> pd.DataFrame:

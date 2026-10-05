@@ -57,7 +57,7 @@ class RandomSplit:
         val_ratio: float = 0.1,
         seed: int = 42,
     ):
-        if not (0 < train_ratio + val_ratio < 1.0 + 1e-9):
+        if not (0 < train_ratio + val_ratio < 1.0):
             raise ValueError(
                 f"train_ratio ({train_ratio}) + val_ratio ({val_ratio}) must sum to less than 1.0"
             )
@@ -132,7 +132,7 @@ class ECHoldoutSplit:
         ec_level: int = 2,
         seed: int = 42,
     ):
-        if not (0 < train_ratio + val_ratio < 1.0 + 1e-9):
+        if not (0 < train_ratio + val_ratio < 1.0):
             raise ValueError(
                 f"train_ratio ({train_ratio}) + val_ratio ({val_ratio}) must sum to less than 1.0"
             )
@@ -170,6 +170,8 @@ class ECHoldoutSplit:
         E.g., for ec_level=1: '2.7.1.1' -> '2'
               for ec_level=2: '2.7.1.1' -> '2.7'
         """
+        if pd.isna(ec_number) or not str(ec_number).strip():
+            return "unknown"
         try:
             parts = str(ec_number).split(".")
             return ".".join(parts[: self.ec_level])
@@ -196,6 +198,10 @@ class ECHoldoutSplit:
         rng.shuffle(ec_classes)
 
         n_classes = len(ec_classes)
+        if n_classes < 3:
+            raise ValueError(
+                f"ECHoldoutSplit needs at least 3 EC classes, got {n_classes}"
+            )
         n_train = max(1, int(n_classes * self.train_ratio))
         n_val = max(1, int(n_classes * self.val_ratio))
         # Ensure test gets at least 1 class
@@ -206,9 +212,12 @@ class ECHoldoutSplit:
         test_classes = set(ec_classes[n_train + n_val :])
 
         # Verify no overlap
-        assert train_classes.isdisjoint(val_classes), "Train/val EC overlap"
-        assert train_classes.isdisjoint(test_classes), "Train/test EC overlap"
-        assert val_classes.isdisjoint(test_classes), "Val/test EC overlap"
+        if not (
+            train_classes.isdisjoint(val_classes)
+            and train_classes.isdisjoint(test_classes)
+            and val_classes.isdisjoint(test_classes)
+        ):
+            raise ValueError("ECHoldoutSplit produced overlapping EC classes")
 
         result = {
             "train": df[df[self.ec_column].isin(train_classes)].reset_index(drop=True),

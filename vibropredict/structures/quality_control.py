@@ -37,6 +37,9 @@ def parse_plddt_from_pdb(pdb_path: str) -> np.ndarray:
                     continue
 
     arr = np.array(plddt_values, dtype=np.float64)
+    # HF ESMFold writes pLDDT on a 0-1 scale; thresholds here assume 0-100
+    if arr.size and arr.max() <= 1.0:
+        arr = arr * 100.0
     logger.info(f"Parsed {len(arr)} pLDDT values from {pdb_path}")
     return arr
 
