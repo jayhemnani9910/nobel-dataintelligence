@@ -33,7 +33,9 @@ def log_transform_kcat(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def canonicalize_smiles(df: pd.DataFrame, col: str = "substrate_smiles") -> pd.DataFrame:
+def canonicalize_smiles(
+    df: pd.DataFrame, col: str = "substrate_smiles"
+) -> pd.DataFrame:
     """
     Canonicalize SMILES strings using RDKit.
 
@@ -145,5 +147,7 @@ def cluster_split(
     val_df = df.iloc[n_train : n_train + n_val].copy()
     test_df = df.iloc[n_train + n_val :].copy()
 
-    logger.info(f"Split {n} rows -> train={len(train_df)}, val={len(val_df)}, test={len(test_df)}")
+    logger.info(
+        f"Split {n} rows -> train={len(train_df)}, val={len(val_df)}, test={len(test_df)}"
+    )
     return train_df, val_df, test_df

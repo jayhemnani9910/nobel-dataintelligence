@@ -59,7 +59,9 @@ _ANG2_M2 = 1e-20
 _AMU_KG = 1.66053907e-27
 _C_CM_S = 2.99792458e10  # speed of light, cm/s
 _ENM_BASE_S2 = _KCAL_PER_MOL_J / (_ANG2_M2 * _AMU_KG)  # reduced omega^2 unit in s^-2
-ENM_FREQ_CM1_PER_SQRT_EIGVAL = float(np.sqrt(_ENM_BASE_S2) / (2 * np.pi * _C_CM_S))  # ~108.59
+ENM_FREQ_CM1_PER_SQRT_EIGVAL = float(
+    np.sqrt(_ENM_BASE_S2) / (2 * np.pi * _C_CM_S)
+)  # ~108.59
 
 
 class ANMAnalyzer:
@@ -171,7 +173,9 @@ class ANMAnalyzer:
         # Convert reduced ENM eigenvalues (omega^2) to wavenumbers in cm^-1.
         # See ENM_FREQ_CM1_PER_SQRT_EIGVAL for the derivation and the note on
         # reduced (uncalibrated) absolute scale.
-        frequencies = np.sqrt(np.maximum(self._eigenvalues, 0)) * ENM_FREQ_CM1_PER_SQRT_EIGVAL
+        frequencies = (
+            np.sqrt(np.maximum(self._eigenvalues, 0)) * ENM_FREQ_CM1_PER_SQRT_EIGVAL
+        )
 
         self._frequencies = frequencies
         if frequencies.size:
@@ -217,7 +221,9 @@ class ANMAnalyzer:
         logger.info(f"Computed VDOS with {broadening} cm^-1 broadening")
         return vdos
 
-    def compute_vibrational_entropy(self, k: int = 100, temperature: float = 298.15) -> float:
+    def compute_vibrational_entropy(
+        self, k: int = 100, temperature: float = 298.15
+    ) -> float:
         """
         Compute vibrational entropy (S_vib) from normal modes.
 
@@ -265,7 +271,9 @@ class ANMAnalyzer:
         # Total entropy per mole
         s_vib_total = kb * avogadro * np.sum(s_vib_modes)
 
-        logger.info(f"Vibrational entropy (T={temperature}K): {s_vib_total:.2f} J/(mol*K)")
+        logger.info(
+            f"Vibrational entropy (T={temperature}K): {s_vib_total:.2f} J/(mol*K)"
+        )
         return s_vib_total
 
     def get_mode_collectivity(self, mode_idx: int = 0) -> float:
@@ -320,7 +328,9 @@ class ANMAnalyzer:
 
         # Mean-square fluctuation from mode decomposition
         # <u^2> = sum_i |v_i|^2 / lambda_i (in harmonic approximation)
-        mode_matrix = self._eigenvectors[:, :k].reshape(self.n_atoms, 3, k)  # (n_atoms, 3, k)
+        mode_matrix = self._eigenvectors[:, :k].reshape(
+            self.n_atoms, 3, k
+        )  # (n_atoms, 3, k)
         mode_energies = self._eigenvalues[:k]
 
         # Avoid division by zero
@@ -352,6 +362,8 @@ class GNMAnalyzer:
             self.structure = structure
 
         self.ca_atoms = self.structure.select("ca")
+        if self.ca_atoms is None:
+            raise ValueError("No C-alpha atoms found in structure")
         self.n_atoms = self.ca_atoms.numAtoms()
 
         # Initialize GNM
@@ -403,7 +415,9 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
     Returns:
         Dictionary with comparison metrics
     """
-    logger.info(f"Comparing structures: {Path(pdb1_path).name} vs {Path(pdb2_path).name}")
+    logger.info(
+        f"Comparing structures: {Path(pdb1_path).name} vs {Path(pdb2_path).name}"
+    )
 
     # Analyze both structures
     anm1 = ANMAnalyzer(pdb1_path)
@@ -417,7 +431,8 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
 
     # Compute delta properties
     delta_s_vib = s_vib2 - s_vib1
-    freq_shift = np.mean(freq2 - freq1)
+    n_common = min(len(freq1), len(freq2))
+    freq_shift = np.mean(freq2[:n_common] - freq1[:n_common])
 
     result = {
         "structure1": Path(pdb1_path).name,
@@ -429,6 +444,8 @@ def compare_structures(pdb1_path: str, pdb2_path: str, k: int = 50) -> dict:
         "vdos2": anm2.compute_vdos(k=k),
     }
 
-    logger.info(f"ΔS_vib = {delta_s_vib:.2f} J/(mol*K) ({(delta_s_vib / s_vib1) * 100:+.1f}%)")
+    logger.info(
+        f"ΔS_vib = {delta_s_vib:.2f} J/(mol*K) ({(delta_s_vib / s_vib1) * 100:+.1f}%)"
+    )
 
     return result

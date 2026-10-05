@@ -8,7 +8,7 @@ using a learned soft-gating mechanism.
 import logging
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +81,10 @@ class TriModalFusion(nn.Module):
         proj_spec = self.proj_spec(h_spec)  # (batch, output_dim)
         proj_chem = self.proj_chem(h_chem)  # (batch, output_dim)
 
-        fused = gates[:, 0:1] * proj_seq + gates[:, 1:2] * proj_spec + gates[:, 2:3] * proj_chem
+        fused = (
+            gates[:, 0:1] * proj_seq
+            + gates[:, 1:2] * proj_spec
+            + gates[:, 2:3] * proj_chem
+        )
 
         return self.dropout(fused), gates

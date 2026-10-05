@@ -37,6 +37,9 @@ def parse_plddt_from_pdb(pdb_path: str) -> np.ndarray:
                     continue
 
     arr = np.array(plddt_values, dtype=np.float64)
+    # HF ESMFold writes pLDDT on a 0-1 scale; thresholds here assume 0-100
+    if arr.size and arr.max() <= 1.0:
+        arr = arr * 100.0
     logger.info(f"Parsed {len(arr)} pLDDT values from {pdb_path}")
     return arr
 
@@ -79,7 +82,9 @@ def filter_by_quality(
     return passed
 
 
-def flag_disordered_regions(plddt: np.ndarray, threshold: float = 50.0) -> list[tuple[int, int]]:
+def flag_disordered_regions(
+    plddt: np.ndarray, threshold: float = 50.0
+) -> list[tuple[int, int]]:
     """
     Identify contiguous regions with low pLDDT (likely disordered).
 
@@ -112,5 +117,7 @@ def flag_disordered_regions(plddt: np.ndarray, threshold: float = 50.0) -> list[
         regions.append((start, len(plddt) - 1))
 
     if regions:
-        logger.info(f"Found {len(regions)} disordered region(s) below pLDDT {threshold}")
+        logger.info(
+            f"Found {len(regions)} disordered region(s) below pLDDT {threshold}"
+        )
     return regions

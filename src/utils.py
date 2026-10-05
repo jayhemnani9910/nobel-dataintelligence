@@ -332,7 +332,9 @@ def batch_collate_function(batch):
         elif "spectrum" in item:  # legacy key
             spectra = item["spectrum"]
         else:
-            raise KeyError("Batch item missing required key 'spectra' (or legacy 'spectrum').")
+            raise KeyError(
+                "Batch item missing required key 'spectra' (or legacy 'spectrum')."
+            )
 
         if not isinstance(spectra, torch.Tensor):
             spectra = torch.as_tensor(spectra)
@@ -350,7 +352,9 @@ def batch_collate_function(batch):
 
         if any_labels:
             if ("labels" not in item) and ("label" not in item):
-                raise KeyError("Inconsistent batch: some items have labels but others do not.")
+                raise KeyError(
+                    "Inconsistent batch: some items have labels but others do not."
+                )
             lbl = item.get("labels", item.get("label"))
             if not isinstance(lbl, torch.Tensor):
                 lbl = torch.as_tensor(lbl)
@@ -376,9 +380,13 @@ class Logger:
         """Setup logger."""
         logger = logging.getLogger(name)
         logger.setLevel(level)
+        if logger.handlers:
+            return logger
 
         handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 

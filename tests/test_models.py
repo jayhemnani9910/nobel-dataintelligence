@@ -12,7 +12,7 @@ import sys
 import unittest
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
@@ -46,9 +46,9 @@ class TestProteinGNN(unittest.TestCase):
     def setUp(self):
         """Initialize model."""
         self.device = torch.device("cpu")
-        self.model = ProteinGNN(input_dim=24, hidden_dim=64, output_dim=128, dropout=0.1).to(
-            self.device
-        )
+        self.model = ProteinGNN(
+            input_dim=24, hidden_dim=64, output_dim=128, dropout=0.1
+        ).to(self.device)
 
     def test_model_initialization(self):
         """Test model can be initialized."""
@@ -167,9 +167,9 @@ class TestSpectralCNN(unittest.TestCase):
 
     def test_multiscale_cnn(self):
         """Test MultiScaleSpectralCNN."""
-        model = MultiScaleSpectralCNN(input_channels=1, hidden_channels=32, output_dim=128).to(
-            self.device
-        )
+        model = MultiScaleSpectralCNN(
+            input_channels=1, hidden_channels=32, output_dim=128
+        ).to(self.device)
 
         batch_size = 4
         spectra = torch.randn(batch_size, 1, 1000).to(self.device)
@@ -189,9 +189,9 @@ class TestMultimodalFusion(unittest.TestCase):
 
     def test_concat_fusion(self):
         """Test concatenation fusion."""
-        fusion = VibroStructuralFusion(latent_dim=128, fusion_type="concat", dropout=0.1).to(
-            self.device
-        )
+        fusion = VibroStructuralFusion(
+            latent_dim=128, fusion_type="concat", dropout=0.1
+        ).to(self.device)
 
         output = fusion(self.gnn_output, self.cnn_output)
         # concat doubles the dim
@@ -199,18 +199,18 @@ class TestMultimodalFusion(unittest.TestCase):
 
     def test_bilinear_fusion(self):
         """Test bilinear fusion."""
-        fusion = VibroStructuralFusion(latent_dim=128, fusion_type="bilinear", dropout=0.1).to(
-            self.device
-        )
+        fusion = VibroStructuralFusion(
+            latent_dim=128, fusion_type="bilinear", dropout=0.1
+        ).to(self.device)
 
         output = fusion(self.gnn_output, self.cnn_output)
         self.assertEqual(output.shape, (4, 128))
 
     def test_attention_fusion(self):
         """Test attention-based fusion."""
-        fusion = VibroStructuralFusion(latent_dim=128, fusion_type="attention", dropout=0.1).to(
-            self.device
-        )
+        fusion = VibroStructuralFusion(
+            latent_dim=128, fusion_type="attention", dropout=0.1
+        ).to(self.device)
 
         output = fusion(self.gnn_output, self.cnn_output)
         self.assertEqual(output.shape, (4, 128))
@@ -226,7 +226,11 @@ class TestVibroStructuralModel(unittest.TestCase):
         """Initialize model."""
         self.device = torch.device("cpu")
         self.model = VibroStructuralModel(
-            latent_dim=128, gnn_input_dim=24, fusion_type="bilinear", dropout=0.1, num_go_terms=100
+            latent_dim=128,
+            gnn_input_dim=24,
+            fusion_type="bilinear",
+            dropout=0.1,
+            num_go_terms=100,
         ).to(self.device)
 
     def test_model_initialization(self):
@@ -249,7 +253,9 @@ class TestVibroStructuralModel(unittest.TestCase):
         spectra = torch.randn(batch_size, 1, spectrum_length).to(self.device)
 
         # Dummy graph data with batch attribute
-        graph = Data(x=x, edge_index=edge_index, batch=torch.zeros(n_nodes, dtype=torch.long))
+        graph = Data(
+            x=x, edge_index=edge_index, batch=torch.zeros(n_nodes, dtype=torch.long)
+        )
 
         output = self.model(graph, spectra, task="novozymes")
 
@@ -267,7 +273,9 @@ class TestVibroStructuralModel(unittest.TestCase):
         edge_index = torch.randint(0, n_nodes, (2, 300)).to(self.device)
         spectra = torch.randn(batch_size, 1, spectrum_length).to(self.device)
 
-        graph = Data(x=x, edge_index=edge_index, batch=torch.zeros(n_nodes, dtype=torch.long))
+        graph = Data(
+            x=x, edge_index=edge_index, batch=torch.zeros(n_nodes, dtype=torch.long)
+        )
 
         output = self.model(graph, spectra, task="cafa5")
 
@@ -283,9 +291,13 @@ class TestVibroStructuralModel(unittest.TestCase):
         x = torch.randn(n_nodes, 24).to(self.device)
         edge_index = torch.randint(0, n_nodes, (2, 300)).to(self.device)
         spectra = torch.randn(batch_size, 1, spectrum_length).to(self.device)
-        global_features = torch.randn(batch_size, 3).to(self.device)  # pH, temperature, etc.
+        global_features = torch.randn(batch_size, 3).to(
+            self.device
+        )  # pH, temperature, etc.
 
-        graph = Data(x=x, edge_index=edge_index, batch=torch.zeros(n_nodes, dtype=torch.long))
+        graph = Data(
+            x=x, edge_index=edge_index, batch=torch.zeros(n_nodes, dtype=torch.long)
+        )
 
         output = self.model(graph, spectra, global_features, task="novozymes")
 
@@ -369,7 +381,8 @@ class TestModelOutputShapes(unittest.TestCase):
     """Validate output tensor shapes for all components."""
 
     @unittest.skipUnless(
-        TORCH_GEOMETRIC_AVAILABLE, "torch_geometric is not available or failed to import"
+        TORCH_GEOMETRIC_AVAILABLE,
+        "torch_geometric is not available or failed to import",
     )
     def test_gnn_output_shape(self):
         """Test GNN output shape."""
@@ -392,7 +405,8 @@ class TestModelOutputShapes(unittest.TestCase):
         self.assertEqual(output.shape, (16, 128))
 
     @unittest.skipUnless(
-        TORCH_GEOMETRIC_AVAILABLE, "torch_geometric is not available or failed to import"
+        TORCH_GEOMETRIC_AVAILABLE,
+        "torch_geometric is not available or failed to import",
     )
     def test_multimodal_output_shapes(self):
         """Test multimodal model output shapes."""
@@ -403,7 +417,9 @@ class TestModelOutputShapes(unittest.TestCase):
         # Create dummy inputs
         x = torch.randn(100, 24)
         edge_index = torch.randint(0, 100, (2, 200))
-        graph = Data(x=x, edge_index=edge_index, batch=torch.zeros(100, dtype=torch.long))
+        graph = Data(
+            x=x, edge_index=edge_index, batch=torch.zeros(100, dtype=torch.long)
+        )
         spectra = torch.randn(1, 1, 1000)
 
         # Test Novozymes output

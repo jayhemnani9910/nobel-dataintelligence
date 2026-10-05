@@ -12,8 +12,8 @@ from vibropredict.models.sequence_encoder import ProtT5Encoder
 from vibropredict.models.vibropredict_hybrid import VibroPredictHybrid
 
 __all__ = [
-    "ProtT5Encoder",
     "ChemicalEncoder",
+    "ProtT5Encoder",
     "TriModalFusion",
     "VibroPredictHybrid",
 ]

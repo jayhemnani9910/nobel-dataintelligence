@@ -68,7 +68,9 @@ def compare_with_baselines(
                 "rmse": metrics.get("rmse", float("nan")),
                 "r_squared": metrics.get("r_squared", float("nan")),
                 "spearman": metrics.get("spearman", float("nan")),
-                "source": "live" if "rmse" in metrics else "published",
+                "source": "failed"
+                if "error" in metrics
+                else ("live" if "rmse" in metrics else "published"),
             }
         )
 
@@ -103,7 +105,8 @@ def run_live_comparison(
 
     # Our metrics
     our_metrics = compute_all_metrics(our_predictions, our_targets)
-    results = {"VibroPredict": our_metrics}
+    # VibroPredict's own row is added by compare_with_baselines(our_metrics, ...)
+    results = {}
 
     # Run each registered baseline
     for name in list_baselines():
@@ -125,7 +128,7 @@ def run_live_comparison(
             results[name] = metrics
             logger.info(f"{name}: R²={metrics['r_squared']:.4f}")
         except Exception as exc:
-            logger.warning(f"{name} failed: {exc}")
+            logger.warning(f"{name} failed: {exc}", exc_info=True)
             results[name] = {
                 "rmse": float("nan"),
                 "r_squared": float("nan"),

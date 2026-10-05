@@ -132,7 +132,9 @@ class PDBDataAcquisition:
                 logger.debug(f"Downloaded {pdb_id}")
                 return str(filename)
             else:
-                logger.warning(f"Failed to download {pdb_id}: Status {response.status_code}")
+                logger.warning(
+                    f"Failed to download {pdb_id}: Status {response.status_code}"
+                )
                 return None
         except (requests.RequestException, OSError) as e:
             logger.error(f"Error downloading {pdb_id}: {e}")
@@ -153,11 +155,14 @@ class PDBDataAcquisition:
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {
-                executor.submit(self.download_structure, pdb_id): pdb_id for pdb_id in pdb_ids
+                executor.submit(self.download_structure, pdb_id): pdb_id
+                for pdb_id in pdb_ids
             }
 
             for future in tqdm(
-                as_completed(futures), total=len(pdb_ids), desc="Downloading PDB structures"
+                as_completed(futures),
+                total=len(pdb_ids),
+                desc="Downloading PDB structures",
             ):
                 result = future.result()
                 if result:
@@ -193,7 +198,8 @@ class KaggleDataAcquisition:
             ],
             check=True,
         )
-        for file in self.output_dir.glob("*.zip"):
+        file = self.output_dir / f"{competition_name}.zip"
+        if file.exists():
             with zipfile.ZipFile(file, "r") as zip_ref:
                 zip_ref.extractall(self.output_dir)
             file.unlink()
@@ -263,8 +269,15 @@ class KaggleDataAcquisition:
             updates = pd.read_csv(updates_csv)
             logger.info(f"Applying updates: {updates.shape[0]} corrections")
             # Update rows as specified in train_updates.csv
+            cols = [c for c in updates.columns if c in df.columns]
             for _, row in updates.iterrows():
-                df.loc[df["seq_id"] == row["seq_id"]] = row
+                mask = df["seq_id"] == row["seq_id"]
+                # Kaggle marks deleted rows with an all-NaN update
+                if pd.isna(row["protein_sequence"]):
+                    df = df[~mask]
+                else:
+                    df.loc[mask, cols] = row[cols].values
+            df = df.reset_index(drop=True)
 
         return df
 
@@ -348,7 +361,9 @@ class SpectralDatabaseAcquisition:
                 width = np.random.uniform(2, 10)
 
                 # Lorentzian profile
-                lorentzian = amplitude * (width**2) / ((frequencies - center) ** 2 + width**2)
+                lorentzian = (
+                    amplitude * (width**2) / ((frequencies - center) ** 2 + width**2)
+                )
                 spectrum += lorentzian
 
             spectra.append(spectrum)
@@ -359,7 +374,9 @@ class SpectralDatabaseAcquisition:
         # Save database
         spectra_array = np.array(spectra)
         db_path = self.output_dir / "synthetic_spectra_db.npz"
-        np.savez(db_path, spectra=spectra_array, frequencies=frequencies, metadata=metadata)
+        np.savez(
+            db_path, spectra=spectra_array, frequencies=frequencies, metadata=metadata
+        )
 
         logger.info(f"Synthetic spectral database saved to {db_path}")
         return str(db_path)

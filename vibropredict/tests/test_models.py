@@ -13,7 +13,7 @@ import unittest
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
@@ -72,7 +72,9 @@ class TestTriModalFusionMock(unittest.TestCase):
         _, gates = model(h_seq, h_spec, h_chem)
         sums = gates.sum(dim=-1)
 
-        np.testing.assert_array_almost_equal(sums.detach().numpy(), np.ones(8), decimal=5)
+        np.testing.assert_array_almost_equal(
+            sums.detach().numpy(), np.ones(8), decimal=5
+        )
 
 
 class TestMutantRankingLoss(unittest.TestCase):

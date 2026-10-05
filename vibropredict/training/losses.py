@@ -6,8 +6,8 @@ to preserve relative ordering among enzyme mutants.
 """
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class MutantRankingLoss(nn.Module):
@@ -52,13 +52,15 @@ class MutantRankingLoss(nn.Module):
 
         if mutant_pairs is not None:
             target_diff = targets[mutant_pairs[:, 0]] - targets[mutant_pairs[:, 1]]
-            target_sign = torch.sign(target_diff)
-            ranking_loss = F.margin_ranking_loss(
-                predictions[mutant_pairs[:, 0]],
-                predictions[mutant_pairs[:, 1]],
-                target_sign,
-                margin=0.1,
-            )
-            return mse_loss + self.lambda_rank * ranking_loss
+            # Tied pairs (sign 0) add a constant margin penalty with no gradient
+            keep = target_diff != 0
+            if keep.any():
+                ranking_loss = F.margin_ranking_loss(
+                    predictions[mutant_pairs[keep, 0]],
+                    predictions[mutant_pairs[keep, 1]],
+                    torch.sign(target_diff[keep]),
+                    margin=0.1,
+                )
+                return mse_loss + self.lambda_rank * ranking_loss
 
         return mse_loss

@@ -124,7 +124,13 @@ class TestCAFA5Dataset(unittest.TestCase):
         self.terms_file = self.data_dir / "train_terms.csv"
         terms_data = {
             "target_id": ["prot_1", "prot_1", "prot_2", "prot_2", "prot_3"],
-            "go_id": ["GO:0005575", "GO:0003674", "GO:0005575", "GO:0008150", "GO:0003674"],
+            "go_id": [
+                "GO:0005575",
+                "GO:0003674",
+                "GO:0005575",
+                "GO:0008150",
+                "GO:0003674",
+            ],
         }
         pd.DataFrame(terms_data).to_csv(self.terms_file, index=False)
 
@@ -194,7 +200,9 @@ class TestDataLoaderBatching(unittest.TestCase):
         }
 
         # Convert to tensors
-        spectra_batch = torch.stack([torch.from_numpy(s).float() for s in batch["spectra"]])
+        spectra_batch = torch.stack(
+            [torch.from_numpy(s).float() for s in batch["spectra"]]
+        )
         labels_batch = torch.from_numpy(np.array(batch["labels"])).float()
 
         self.assertEqual(spectra_batch.shape, (batch_size, spectrum_length))

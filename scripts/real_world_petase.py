@@ -16,6 +16,7 @@ Outputs:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -23,7 +24,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import trapezoid
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.nma_analysis import ANMAnalyzer
 
 CASES = [
@@ -70,30 +73,34 @@ for case in CASES:
     # Spectral bookkeeping
     # src/nma_analysis.py builds its VDOS grid as np.linspace(0, 500, 1000) cm^-1
     freq_grid = np.linspace(0.0, 500.0, len(vdos))
-    vdos_integral = float(np.trapezoid(vdos, freq_grid))
+    vdos_integral = float(trapezoid(vdos, freq_grid))
     peak_freq = float(freq_grid[int(np.argmax(vdos))])
     low_freq_mask = freq_grid < 100.0
     low_freq_fraction = float(
-        np.trapezoid(vdos[low_freq_mask], freq_grid[low_freq_mask]) / vdos_integral
+        trapezoid(vdos[low_freq_mask], freq_grid[low_freq_mask]) / vdos_integral
     )
-    mean_freq = float(np.trapezoid(vdos * freq_grid, freq_grid) / vdos_integral)
+    mean_freq = float(trapezoid(vdos * freq_grid, freq_grid) / vdos_integral)
 
     results[name] = {
         "Tm_measured_C": case["Tm_measured_C"],
         "note": case["note"],
-        "n_modes_used": int(len(positive)),
-        "min_eigenvalue": float(positive.min()),
-        "mean_eigenvalue": float(positive.mean()),
+        "n_modes_used": len(positive),
+        "min_freq_cm1": float(positive.min()),
+        "mean_freq_cm1": float(positive.mean()),
         "vibrational_entropy_J_mol_K": float(entropy),
         "vdos_peak_freq_cm1": peak_freq,
         "vdos_mean_freq_cm1": mean_freq,
         "vdos_low_freq_fraction_under_100cm1": low_freq_fraction,
     }
     print(f"  modes used:              {results[name]['n_modes_used']}")
-    print(f"  vib. entropy (J/mol/K):  {results[name]['vibrational_entropy_J_mol_K']:.3f}")
+    print(
+        f"  vib. entropy (J/mol/K):  {results[name]['vibrational_entropy_J_mol_K']:.3f}"
+    )
     print(f"  VDOS peak (cm^-1):       {results[name]['vdos_peak_freq_cm1']:.2f}")
     print(f"  VDOS mean freq (cm^-1):  {results[name]['vdos_mean_freq_cm1']:.2f}")
-    print(f"  <100cm^-1 fraction:      {results[name]['vdos_low_freq_fraction_under_100cm1']:.3f}")
+    print(
+        f"  <100cm^-1 fraction:      {results[name]['vdos_low_freq_fraction_under_100cm1']:.3f}"
+    )
 
 # --- Save summary JSON ---
 with open(OUTPUT_DIR / "petase_vs_lcc_summary.json", "w") as f:
@@ -114,7 +121,9 @@ for case in CASES:
     )
 ax.set_xlabel("Frequency (cm⁻¹)")
 ax.set_ylabel("Normalized VDOS")
-ax.set_title("Vibrational density of states — fragile vs thermostable PET-degrading enzyme")
+ax.set_title(
+    "Vibrational density of states — fragile vs thermostable PET-degrading enzyme"
+)
 ax.legend(loc="upper right")
 ax.grid(True, alpha=0.3)
 ax.set_xlim(0, 500)
@@ -127,10 +136,13 @@ ft = results["IsPETase_wildtype"]
 lc = results["LCC-ICCG_engineered"]
 entropy_delta = lc["vibrational_entropy_J_mol_K"] - ft["vibrational_entropy_J_mol_K"]
 lowfreq_delta = (
-    lc["vdos_low_freq_fraction_under_100cm1"] - ft["vdos_low_freq_fraction_under_100cm1"]
+    lc["vdos_low_freq_fraction_under_100cm1"]
+    - ft["vdos_low_freq_fraction_under_100cm1"]
 )
 print("\n=== VERDICT ===")
-print(f"LCC is {lc['Tm_measured_C'] - ft['Tm_measured_C']:+.1f}°C more thermostable than IsPETase.")
+print(
+    f"LCC is {lc['Tm_measured_C'] - ft['Tm_measured_C']:+.1f}°C more thermostable than IsPETase."
+)
 print(f"Δ vibrational entropy (LCC - WT): {entropy_delta:+.3f} J/mol/K")
 print(f"Δ low-frequency VDOS fraction:   {lowfreq_delta:+.4f}")
 print("\nInterpretation:")

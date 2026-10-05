@@ -24,7 +24,9 @@ pytestmark = pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
 class TestTrainingSmokeTest:
     """Smoke test for the VibroPredict training loop."""
 
-    def test_loss_decreases_after_one_epoch(self, synthetic_loader, dummy_model, tmp_path):
+    def test_loss_decreases_after_one_epoch(
+        self, synthetic_loader, dummy_model, tmp_path
+    ):
         """Loss at epoch 1 should be strictly lower than initial loss."""
         import torch
 

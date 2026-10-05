@@ -19,7 +19,7 @@ import sys
 import unittest
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
@@ -47,7 +47,9 @@ class _StubChem(nn.Module):
 
     def forward(self, substrate_smiles, product_smiles=None):
         n = len(substrate_smiles)
-        return self.w * (torch.arange(1.0, n + 1).unsqueeze(1).repeat(1, self.dim) * 2.0)
+        return self.w * (
+            torch.arange(1.0, n + 1).unsqueeze(1).repeat(1, self.dim) * 2.0
+        )
 
 
 def _build_stubbed_model():

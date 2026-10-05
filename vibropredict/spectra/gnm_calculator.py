@@ -63,11 +63,13 @@ class GNMCalculator:
 
         n_atoms = ca_atoms.numAtoms()
         logger.info(f"Parsed {pdb_path}: {n_atoms} C-alpha atoms")
+        if n_atoms < 2:
+            raise ValueError(f"GNM needs at least 2 C-alpha atoms, got {n_atoms}")
 
         gnm = pr.GNM(f"GNM_{n_atoms}")
         gnm.buildKirchhoff(ca_atoms, cutoff=self.cutoff)
 
-        n_modes = min(n_atoms - 1, n_atoms)
+        n_modes = n_atoms - 1
         gnm.calcModes(n_modes)
 
         eigenvalues = np.asarray(gnm.getEigvals())
@@ -82,7 +84,7 @@ class GNMCalculator:
         return eigenvalues[nonzero_idx], eigenvectors[:, nonzero_idx]
 
     def compute_from_coords(
-        self, coords: np.ndarray, cutoff: float = None
+        self, coords: np.ndarray, cutoff: float | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Build GNM from a raw coordinate array and compute modes.
@@ -101,11 +103,13 @@ class GNMCalculator:
 
         n_atoms = coords.shape[0]
         logger.info(f"Building GNM from {n_atoms} coordinate points")
+        if n_atoms < 2:
+            raise ValueError(f"GNM needs at least 2 atoms, got {n_atoms}")
 
         gnm = pr.GNM(f"GNM_{n_atoms}")
         gnm.buildKirchhoff(coords, cutoff=cutoff)
 
-        n_modes = min(n_atoms - 1, n_atoms)
+        n_modes = n_atoms - 1
         gnm.calcModes(n_modes)
 
         eigenvalues = np.asarray(gnm.getEigvals())

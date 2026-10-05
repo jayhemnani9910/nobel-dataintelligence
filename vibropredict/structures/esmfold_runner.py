@@ -53,12 +53,14 @@ class ESMFoldPredictor:
         Returns:
             Predicted structure as a PDB-format string.
         """
-        import torch  # noqa: F811
+        import torch
 
         if self._model is None:
             self._load_model()
 
-        inputs = self._tokenizer([sequence], return_tensors="pt", add_special_tokens=False)
+        inputs = self._tokenizer(
+            [sequence], return_tensors="pt", add_special_tokens=False
+        )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         with torch.no_grad():
@@ -121,6 +123,11 @@ class ESMFoldPredictor:
             return False
 
         mean_plddt = float(np.mean(plddt_values))
+        # HF ESMFold writes pLDDT on a 0-1 scale; threshold assumes 0-100
+        if max(plddt_values) <= 1.0:
+            mean_plddt *= 100.0
         passed = mean_plddt > threshold
-        logger.info(f"Mean pLDDT = {mean_plddt:.1f} (threshold={threshold}, passed={passed})")
+        logger.info(
+            f"Mean pLDDT = {mean_plddt:.1f} (threshold={threshold}, passed={passed})"
+        )
         return passed

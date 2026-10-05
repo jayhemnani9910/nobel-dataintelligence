@@ -9,7 +9,6 @@ Guards two audit fixes:
      instead of silently trying to load an incompatible checkpoint.
 """
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -18,7 +17,7 @@ import pytest
 pytest.importorskip("prody")
 pytest.importorskip("torch")
 
-from src import inference  # noqa: E402
+from src import inference
 
 _PDB_DIR = Path(__file__).resolve().parent.parent / "data" / "pdb"
 
@@ -36,8 +35,12 @@ def test_fallback_vdos_is_length_only():
 )
 def test_real_vdos_is_structure_specific():
     """With structures, two different proteins give distinct real VDOS."""
-    v_a = inference._generate_vdos_for_sequence("X" * 265, pdb_path=str(_PDB_DIR / "6eqe.pdb"))
-    v_b = inference._generate_vdos_for_sequence("X" * 258, pdb_path=str(_PDB_DIR / "6ths.pdb"))
+    v_a = inference._generate_vdos_for_sequence(
+        "X" * 265, pdb_path=str(_PDB_DIR / "6eqe.pdb")
+    )
+    v_b = inference._generate_vdos_for_sequence(
+        "X" * 258, pdb_path=str(_PDB_DIR / "6ths.pdb")
+    )
     cos = float(np.dot(v_a, v_b) / (np.linalg.norm(v_a) * np.linalg.norm(v_b)))
     assert cos < 0.999, f"structure VDOS not distinct (cos={cos:.6f})"
     assert int(v_a.argmax()) > 1  # not collapsed to bin 0
@@ -55,7 +58,9 @@ def test_missing_checkpoint_error_is_honest(tmp_path):
     assert "stub" in msg.lower() or "smoke" in msg.lower()
 
 
-_REAL_CKPT = Path(__file__).resolve().parent.parent / "checkpoints" / "best_model_epoch10.pt"
+_REAL_CKPT = (
+    Path(__file__).resolve().parent.parent / "checkpoints" / "best_model_epoch10.pt"
+)
 
 
 @pytest.mark.skipif(

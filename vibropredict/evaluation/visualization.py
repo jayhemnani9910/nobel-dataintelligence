@@ -52,7 +52,7 @@ def plot_correlation(
         xy=(0.05, 0.92),
         xycoords="axes fraction",
         fontsize=12,
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
     )
 
     plt.tight_layout()
@@ -116,7 +116,9 @@ def plot_gate_weights(
     stds = gate_weights.std(axis=0)
 
     fig, ax = plt.subplots(figsize=(6, 4))
-    bars = ax.bar(labels, means, yerr=stds, capsize=5, color=["#2196F3", "#4CAF50", "#FF9800"])
+    bars = ax.bar(
+        labels, means, yerr=stds, capsize=5, color=["#2196F3", "#4CAF50", "#FF9800"]
+    )
 
     ax.set_ylabel("Mean Gate Weight")
     ax.set_title("Modality Gate Weights")
@@ -167,7 +169,7 @@ def plot_error_distribution(
         xy=(0.72, 0.85),
         xycoords="axes fraction",
         fontsize=10,
-        bbox=dict(boxstyle="round", facecolor="lightyellow", alpha=0.8),
+        bbox={"boxstyle": "round", "facecolor": "lightyellow", "alpha": 0.8},
     )
 
     plt.tight_layout()

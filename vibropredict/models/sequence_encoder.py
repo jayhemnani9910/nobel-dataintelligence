@@ -8,7 +8,7 @@ with learned per-residue attention pooling.
 import logging
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +52,14 @@ class ProtT5Encoder(nn.Module):
         from transformers import T5EncoderModel, T5Tokenizer  # type: ignore
 
         logger.info(f"Loading ProtT5 model: {self.model_name}")
-        self._tokenizer = T5Tokenizer.from_pretrained(self.model_name, do_lower_case=False)
-        self._encoder = T5EncoderModel.from_pretrained(self.model_name)
-        self._encoder = self._encoder.to(device)
-        self._encoder.eval()
+        self._tokenizer = T5Tokenizer.from_pretrained(
+            self.model_name, do_lower_case=False
+        )
+        encoder = T5EncoderModel.from_pretrained(self.model_name).to(device)
+        encoder.eval()
+        # Bypass nn.Module registration: the frozen encoder stays out of
+        # state_dict() and is not switched back to train mode by .train().
+        object.__setattr__(self, "_encoder", encoder)
         logger.info("ProtT5 model loaded successfully")
 
     def forward(self, sequences: list[str]) -> torch.Tensor:
@@ -76,6 +80,8 @@ class ProtT5Encoder(nn.Module):
 
         if self._encoder is None:
             self._load_model(device)
+        elif next(self._encoder.parameters()).device != device:
+            self._encoder.to(device)
 
         # ProtT5 expects spaces between residues
         spaced = [" ".join(list(seq)) for seq in sequences]
@@ -94,8 +100,11 @@ class ProtT5Encoder(nn.Module):
         # (batch, seq_len, 1024)
         embeddings = encoder_output.last_hidden_state
 
-        # Attention pooling
-        attn_weights = torch.softmax(self.attention(embeddings), dim=1)  # (batch, seq_len, 1)
+        # Attention pooling (padding positions get zero weight)
+        attn_logits = self.attention(embeddings)  # (batch, seq_len, 1)
+        pad_mask = tokens["attention_mask"].unsqueeze(-1) == 0
+        attn_logits = attn_logits.masked_fill(pad_mask, float("-inf"))
+        attn_weights = torch.softmax(attn_logits, dim=1)  # (batch, seq_len, 1)
         pooled = torch.sum(attn_weights * embeddings, dim=1)  # (batch, 1024)
 
         return pooled

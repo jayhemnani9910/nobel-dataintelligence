@@ -15,12 +15,12 @@ __author__ = "Quantum Data Decoder Team"
 
 __all__ = [
     "data_acquisition",
+    "datasets",
+    "models",
     "nma_analysis",
     "spectral_generation",
-    "utils",
-    "datasets",
     "training",
-    "models",
+    "utils",
 ]
 
 

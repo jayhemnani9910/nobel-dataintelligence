@@ -11,7 +11,7 @@ _HAS_TORCH = importlib.util.find_spec("torch") is not None
 if _HAS_TORCH:
     import numpy as np
     import torch
-    import torch.nn as nn
+    from torch import nn
     from torch.utils.data import DataLoader
 
 
@@ -122,7 +122,9 @@ def dummy_model():
             self.spec_proj = nn.Linear(1000, 32)
             self.head = nn.Linear(32, 1)
 
-        def forward(self, sequences, vdos, substrate_smiles, product_smiles, drop_spectral):
+        def forward(
+            self, sequences, vdos, substrate_smiles, product_smiles, drop_spectral
+        ):
             batch_size = vdos.shape[0]
             # Simple spectral branch
             x = vdos.squeeze(1)  # (B, 1000)

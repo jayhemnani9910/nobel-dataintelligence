@@ -72,11 +72,14 @@ pipeline — one structure per `uniprot_id` (AlphaFold or PDB):
 
 ```python
 import numpy as np, pathlib
-from vibropredict.spectra.vdos_engine import VibroEnzymePipeline  # corrected GNM scaling
+from vibropredict.spectra.vdos_engine import (
+    VibroEnzymePipeline,
+)  # corrected GNM scaling
 
 pipe = VibroEnzymePipeline(n_points=1000, freq_max=500.0, broadening=5.0)
-out = pathlib.Path("data/spectral"); out.mkdir(parents=True, exist_ok=True)
-for uniprot_id, pdb_path in structures.items():        # you supply this mapping
+out = pathlib.Path("data/spectral")
+out.mkdir(parents=True, exist_ok=True)
+for uniprot_id, pdb_path in structures.items():  # you supply this mapping
     vdos, _ = pipe.generate_vdos(str(pdb_path))
     np.save(out / f"{uniprot_id}_vdos.npy", vdos.astype("float32"))
 ```

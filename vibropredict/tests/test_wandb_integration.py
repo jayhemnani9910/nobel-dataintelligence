@@ -17,7 +17,7 @@ pytestmark = pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
 
 if _HAS_TORCH:
     import torch
-    import torch.nn as nn
+    from torch import nn
     from torch.utils.data import DataLoader
 
 
@@ -29,7 +29,9 @@ def _make_dummy_model():
             super().__init__()
             self.linear = nn.Linear(10, 1)
 
-        def forward(self, sequences, vdos, substrate_smiles, product_smiles, drop_spectral):
+        def forward(
+            self, sequences, vdos, substrate_smiles, product_smiles, drop_spectral
+        ):
             batch_size = vdos.shape[0]
             x = vdos.mean(dim=-1).mean(dim=-1, keepdim=True)
             logkcat = self.linear(torch.cat([x] * 10, dim=-1)).squeeze(-1)
@@ -96,7 +98,9 @@ class TestWandBDisabled:
 
         trainer = TrainerWithMMDrop(model, optimizer, device="cpu")
         loader = _make_dummy_loader()
-        best_loss = trainer.fit(loader, loader, loss_fn, epochs=1, p_drop=0.0, patience=5)
+        best_loss = trainer.fit(
+            loader, loader, loss_fn, epochs=1, p_drop=0.0, patience=5
+        )
 
         assert isinstance(best_loss, float)
         assert best_loss >= 0
@@ -118,7 +122,9 @@ class TestWandBEnabled:
         with patch.dict("sys.modules", {"wandb": mock_wandb}):
             model = _make_dummy_model()
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-            trainer = TrainerWithMMDrop(model, optimizer, device="cpu", log_to_wandb=True)
+            trainer = TrainerWithMMDrop(
+                model, optimizer, device="cpu", log_to_wandb=True
+            )
 
             mock_wandb.init.assert_called_once()
             assert trainer.log_to_wandb is True
@@ -138,7 +144,9 @@ class TestWandBEnabled:
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
             loss_fn = nn.MSELoss()
 
-            trainer = TrainerWithMMDrop(model, optimizer, device="cpu", log_to_wandb=True)
+            trainer = TrainerWithMMDrop(
+                model, optimizer, device="cpu", log_to_wandb=True
+            )
             loader = _make_dummy_loader()
             trainer.fit(loader, loader, loss_fn, epochs=3, p_drop=0.0, patience=5)
 
@@ -168,7 +176,9 @@ class TestWandBEnabled:
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
             loss_fn = nn.MSELoss()
 
-            trainer = TrainerWithMMDrop(model, optimizer, device="cpu", log_to_wandb=True)
+            trainer = TrainerWithMMDrop(
+                model, optimizer, device="cpu", log_to_wandb=True
+            )
             loader = _make_dummy_loader()
             trainer.fit(loader, loader, loss_fn, epochs=1, p_drop=0.0, patience=5)
 
@@ -189,7 +199,9 @@ class TestWandBEnabled:
             optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
             loss_fn = nn.MSELoss()
 
-            trainer = TrainerWithMMDrop(model, optimizer, device="cpu", log_to_wandb=True)
+            trainer = TrainerWithMMDrop(
+                model, optimizer, device="cpu", log_to_wandb=True
+            )
             loader = _make_dummy_loader()
             trainer.fit(loader, loader, loss_fn, epochs=1, p_drop=0.0, patience=5)
 

@@ -111,13 +111,15 @@ Phase 2 of the Quantum Data Decoder project has been successfully completed. Thi
 The `Trainer` class provides production-grade training orchestration:
 
 ```python
-trainer = Trainer(model, optimizer, scheduler, device='cuda')
+trainer = Trainer(model, optimizer, scheduler, device="cuda")
 best_loss = trainer.fit(
-    train_loader, val_loader, loss_fn,
+    train_loader,
+    val_loader,
+    loss_fn,
     epochs=100,
     metric_fn=MetricComputer.spearman_correlation,
     early_stopping_patience=10,
-    task='novozymes'
+    task="novozymes",
 )
 ```
 

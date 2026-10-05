@@ -70,8 +70,10 @@ def _load_realkcat_local(path: Path) -> pd.DataFrame | None:
     return df
 
 
-def _normalize_smiles(smiles: str) -> str:
+def _normalize_smiles(smiles: str) -> str | None:
     """Canonicalize SMILES if RDKit is available, otherwise strip whitespace."""
+    if pd.isna(smiles):
+        return None  # a missing SMILES must not become the joinable string 'nan'
     try:
         from rdkit import Chem
 
@@ -127,7 +129,9 @@ def run_audit(
 
     # Normalize SMILES
     if "substrate_smiles" in kinhub_df.columns:
-        kinhub_df["substrate_smiles_norm"] = kinhub_df["substrate_smiles"].apply(_normalize_smiles)
+        kinhub_df["substrate_smiles_norm"] = kinhub_df["substrate_smiles"].apply(
+            _normalize_smiles
+        )
     else:
         logger.error("KinHub CSV missing 'substrate_smiles' column.")
         sys.exit(1)
@@ -182,12 +186,16 @@ def run_audit(
         sys.exit(1)
 
     # Outer join on (uniprot_id, normalized_smiles)
-    kinhub_keys = kinhub_df[["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]].copy()
+    kinhub_keys = kinhub_df[
+        ["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]
+    ].copy()
     kinhub_keys["in_kinhub"] = True
     if "kcat_kinhub" in kinhub_df.columns:
         kinhub_keys["kcat_kinhub"] = kinhub_df["kcat_kinhub"]
 
-    realkcat_keys = realkcat_df[["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]].copy()
+    realkcat_keys = realkcat_df[
+        ["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]
+    ].copy()
     realkcat_keys["in_realkcat"] = True
     if "kcat_realkcat" in realkcat_df.columns:
         realkcat_keys["kcat_realkcat"] = realkcat_df["kcat_realkcat"]
@@ -212,8 +220,19 @@ def run_audit(
 
     merged = merged.drop(columns=["substrate_smiles_norm"])
 
-    overlap = merged["in_kinhub"] & merged["in_realkcat"]
-    overlap_count = int(overlap.sum())
+    # Count rows that have a match on the other side; counting merged rows would
+    # inflate the overlap when a key repeats (cartesian product in the merge).
+    key_cols = ["uniprot_id", "substrate_smiles_norm"]
+    kinhub_idx = pd.MultiIndex.from_frame(kinhub_df[key_cols])
+    realkcat_idx = pd.MultiIndex.from_frame(realkcat_df[key_cols])
+    kinhub_matched = kinhub_idx.isin(realkcat_idx) & kinhub_df[key_cols].notna().all(
+        axis=1
+    )
+    realkcat_matched = realkcat_idx.isin(kinhub_idx) & realkcat_df[
+        key_cols
+    ].notna().all(axis=1)
+    overlap_count = int(kinhub_matched.sum())
+    realkcat_overlap = int(realkcat_matched.sum())
     overlap_pct = (overlap_count / len(kinhub_df)) * 100 if len(kinhub_df) > 0 else 0.0
 
     results["overlap_count"] = overlap_count
@@ -222,7 +241,7 @@ def run_audit(
     logger.info(
         f"Overlap: {overlap_count} entries "
         f"({overlap_pct:.1f}% of KinHub, "
-        f"{(overlap_count / len(realkcat_df) * 100):.1f}% of RealKcat)"
+        f"{(realkcat_overlap / len(realkcat_df) * 100):.1f}% of RealKcat)"
     )
 
     # Write output
@@ -244,7 +263,9 @@ def run_audit(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Audit KinHub vs RealKcat dataset overlap.")
+    parser = argparse.ArgumentParser(
+        description="Audit KinHub vs RealKcat dataset overlap."
+    )
     parser.add_argument(
         "--kinhub",
         type=str,

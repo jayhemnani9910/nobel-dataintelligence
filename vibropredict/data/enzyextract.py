@@ -78,7 +78,9 @@ class EnzyExtractFilter:
         before = len(df)
 
         # Valid uniprot_id
-        mask_uid = df["uniprot_id"].notna() & (df["uniprot_id"].astype(str).str.strip() != "")
+        mask_uid = df["uniprot_id"].notna() & (
+            df["uniprot_id"].astype(str).str.strip() != ""
+        )
 
         # Valid SMILES
         mask_smiles = df["substrate_smiles"].apply(_is_valid_smiles)
@@ -110,5 +112,7 @@ class EnzyExtractFilter:
             Concatenated DataFrame with a fresh integer index.
         """
         merged = pd.concat([kinhub_df, filtered_df], ignore_index=True)
-        logger.info(f"Merged dataset: {len(kinhub_df)} + {len(filtered_df)} = {len(merged)} rows")
+        logger.info(
+            f"Merged dataset: {len(kinhub_df)} + {len(filtered_df)} = {len(merged)} rows"
+        )
         return merged

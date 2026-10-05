@@ -7,8 +7,8 @@ Processes 1D vibrational spectra to extract frequency-domain embeddings.
 import logging
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,9 @@ class SpectralCNN(nn.Module):
             in_channels = hidden_channels * (2**i)
             out_channels = hidden_channels * (2 ** (i + 1))
 
-            self.residual_blocks.append(ResidualBlock1D(in_channels, out_channels, dropout=dropout))
+            self.residual_blocks.append(
+                ResidualBlock1D(in_channels, out_channels, dropout=dropout)
+            )
 
         # Global adaptive pooling
         self.adaptive_pool = nn.AdaptiveMaxPool1d(1)
@@ -126,7 +128,11 @@ class ResidualBlock1D(nn.Module):
     """
 
     def __init__(
-        self, in_channels: int, out_channels: int, kernel_size: int = 3, dropout: float = 0.1
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 3,
+        dropout: float = 0.1,
     ):
         """
         Initialize 1D residual block.
@@ -157,7 +163,10 @@ class ResidualBlock1D(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Conv1d(
-                out_channels, out_channels, kernel_size=kernel_size, padding=kernel_size // 2
+                out_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                padding=kernel_size // 2,
             ),
             nn.BatchNorm1d(out_channels),
         )

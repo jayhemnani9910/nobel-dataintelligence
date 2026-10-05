@@ -36,7 +36,9 @@ def _generate_vdos_for_sequence(
         # Real NMA-derived VDOS from the structure (corrected eigenvalue scaling).
         from vibropredict.spectra.vdos_engine import VibroEnzymePipeline
 
-        pipeline = VibroEnzymePipeline(n_points=n_points, freq_max=500.0, broadening=5.0)
+        pipeline = VibroEnzymePipeline(
+            n_points=n_points, freq_max=500.0, broadening=5.0
+        )
         vdos, _ = pipeline.generate_vdos(pdb_path)
         logger.info("Computed real NMA VDOS from structure %s", pdb_path)
         return np.asarray(vdos, dtype=np.float64)
@@ -47,7 +49,9 @@ def _generate_vdos_for_sequence(
         "physically meaningful. Pass a PDB structure for real NMA-based VDOS."
     )
     n_residues = len(sequence)
-    frequencies = np.sqrt(np.arange(1, min(n_residues, 100) + 1, dtype=np.float64)) * 15.0
+    frequencies = (
+        np.sqrt(np.arange(1, min(n_residues, 100) + 1, dtype=np.float64)) * 15.0
+    )
 
     sg = SpectralGenerator(freq_min=0, freq_max=500, n_points=n_points)
     vdos = sg.generate_dos(frequencies, broadening=5.0)
@@ -141,7 +145,7 @@ def predict_stability(
     if pdb_path is not None:
         import prody as _pr
 
-        _ca = _pr.parsePDB(pdb_path).select("name CA")
+        _ca = _pr.parsePDB(pdb_path).select("protein and name CA")
         coords = torch.tensor(_ca.getCoords(), dtype=torch.float32)
         if coords.shape[0] != len(sequence):
             # Align coords and per-residue features to a common length. Truncating
@@ -187,7 +191,9 @@ def predict_stability(
         graph = graph.to(device)
         spectra = spectra.to(device)
         global_features = global_features.to(device)
-        output = model(graph, spectra, global_features=global_features, task="novozymes")
+        output = model(
+            graph, spectra, global_features=global_features, task="novozymes"
+        )
 
     predicted_tm = output.squeeze().item()
 

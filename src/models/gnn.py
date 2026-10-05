@@ -8,14 +8,18 @@ and extract structural embeddings.
 import logging
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from src.utils import AA_TO_IDX, HYDROPHOBICITY
 
 try:
     from torch_geometric.data import Data  # type: ignore
-    from torch_geometric.nn import GATv2Conv, global_max_pool, global_mean_pool  # type: ignore
+    from torch_geometric.nn import (  # type: ignore
+        GATv2Conv,
+        global_max_pool,
+        global_mean_pool,
+    )
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "torch_geometric is required for `src.models.gnn`. Install it (and its compiled dependencies) "
@@ -38,7 +42,7 @@ class ProteinGNN(nn.Module):
 
     def __init__(
         self,
-        input_dim: int = 22,
+        input_dim: int = 24,
         hidden_dim: int = 64,
         output_dim: int = 128,
         num_layers: int = 3,
@@ -49,7 +53,7 @@ class ProteinGNN(nn.Module):
         Initialize Protein GNN.
 
         Args:
-            input_dim: Input feature dimension (amino acids: 20 + 2 special)
+            input_dim: Input feature dimension (22 one-hot + hydrophobicity + confidence)
             hidden_dim: Hidden dimension in GAT layers
             output_dim: Output embedding dimension
             num_layers: Number of GAT layers
@@ -182,12 +186,16 @@ class GraphConstruction:
             edge_attr = None
 
         # Create PyG Data object
-        data = Data(x=ca_features, edge_index=edge_index, edge_attr=edge_attr, pos=ca_coords)
+        data = Data(
+            x=ca_features, edge_index=edge_index, edge_attr=edge_attr, pos=ca_coords
+        )
 
         return data
 
     @staticmethod
-    def construct_residue_features(sequence: str, pldt_scores: torch.Tensor = None) -> torch.Tensor:
+    def construct_residue_features(
+        sequence: str, pldt_scores: torch.Tensor = None
+    ) -> torch.Tensor:
         """
         Construct node feature vectors from amino acid sequence.
 

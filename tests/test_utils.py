@@ -18,9 +18,8 @@ class TestParseFasta(unittest.TestCase):
     """Test FASTA parsing utility."""
 
     def _write_fasta(self, content: str) -> str:
-        f = tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False)
-        f.write(content)
-        f.close()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".fasta", delete=False) as f:
+            f.write(content)
         return f.name
 
     def test_single_sequence(self):

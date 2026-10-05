@@ -64,7 +64,7 @@ class TestRegistry:
 
         model = get_baseline("_test_model")
         assert isinstance(model, BaselineModel)
-        log_kcat, meta = model.predict("ACDEF", "CC")
+        log_kcat, _meta = model.predict("ACDEF", "CC")
         assert log_kcat == 42.0
 
         # Cleanup
