@@ -132,7 +132,9 @@ class PDBDataAcquisition:
                 logger.debug(f"Downloaded {pdb_id}")
                 return str(filename)
             else:
-                logger.warning(f"Failed to download {pdb_id}: Status {response.status_code}")
+                logger.warning(
+                    f"Failed to download {pdb_id}: Status {response.status_code}"
+                )
                 return None
         except (requests.RequestException, OSError) as e:
             logger.error(f"Error downloading {pdb_id}: {e}")
@@ -153,11 +155,14 @@ class PDBDataAcquisition:
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             futures = {
-                executor.submit(self.download_structure, pdb_id): pdb_id for pdb_id in pdb_ids
+                executor.submit(self.download_structure, pdb_id): pdb_id
+                for pdb_id in pdb_ids
             }
 
             for future in tqdm(
-                as_completed(futures), total=len(pdb_ids), desc="Downloading PDB structures"
+                as_completed(futures),
+                total=len(pdb_ids),
+                desc="Downloading PDB structures",
             ):
                 result = future.result()
                 if result:
@@ -348,7 +353,9 @@ class SpectralDatabaseAcquisition:
                 width = np.random.uniform(2, 10)
 
                 # Lorentzian profile
-                lorentzian = amplitude * (width**2) / ((frequencies - center) ** 2 + width**2)
+                lorentzian = (
+                    amplitude * (width**2) / ((frequencies - center) ** 2 + width**2)
+                )
                 spectrum += lorentzian
 
             spectra.append(spectrum)
@@ -359,7 +366,9 @@ class SpectralDatabaseAcquisition:
         # Save database
         spectra_array = np.array(spectra)
         db_path = self.output_dir / "synthetic_spectra_db.npz"
-        np.savez(db_path, spectra=spectra_array, frequencies=frequencies, metadata=metadata)
+        np.savez(
+            db_path, spectra=spectra_array, frequencies=frequencies, metadata=metadata
+        )
 
         logger.info(f"Synthetic spectral database saved to {db_path}")
         return str(db_path)

@@ -6,8 +6,8 @@ multi-label function prediction.
 """
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class MarginRankingLossCustom(nn.Module):
@@ -167,7 +167,10 @@ class ContrastiveLoss(nn.Module):
         self.margin = margin
 
     def forward(
-        self, embeddings_1: torch.Tensor, embeddings_2: torch.Tensor, labels: torch.Tensor
+        self,
+        embeddings_1: torch.Tensor,
+        embeddings_2: torch.Tensor,
+        labels: torch.Tensor,
     ) -> torch.Tensor:
         """
         Compute contrastive loss (e.g., NT-Xent for SimCLR-style pretraining).
@@ -241,7 +244,7 @@ class CombinedLoss(nn.Module):
     Combines losses from multiple objectives with learnable weights.
     """
 
-    def __init__(self, loss_fns: dict, initial_weights: dict = None):
+    def __init__(self, loss_fns: dict, initial_weights: dict | None = None):
         """
         Initialize combined loss.
 
@@ -254,11 +257,11 @@ class CombinedLoss(nn.Module):
         self.loss_fns = nn.ModuleDict(loss_fns)
 
         if initial_weights is None:
-            initial_weights = {k: 1.0 for k in loss_fns.keys()}
+            initial_weights = {k: 1.0 for k in loss_fns}
 
         # Learnable temperature parameters for weight scaling
         self.log_weights = nn.ParameterDict(
-            {k: nn.Parameter(torch.tensor(0.0)) for k in loss_fns.keys()}
+            {k: nn.Parameter(torch.tensor(0.0)) for k in loss_fns}
         )
 
     def forward(self, **kwargs) -> tuple[torch.Tensor, dict]:

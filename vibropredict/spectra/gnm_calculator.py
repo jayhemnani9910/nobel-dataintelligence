@@ -82,7 +82,7 @@ class GNMCalculator:
         return eigenvalues[nonzero_idx], eigenvectors[:, nonzero_idx]
 
     def compute_from_coords(
-        self, coords: np.ndarray, cutoff: float = None
+        self, coords: np.ndarray, cutoff: float | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Build GNM from a raw coordinate array and compute modes.

@@ -228,13 +228,13 @@ $$\Gamma_{ij} = \begin{cases}
 
 ```python
 # Load structure
-atoms = prody.parsePDB('structure.pdb')
+atoms = prody.parsePDB("structure.pdb")
 
 # Select alpha-carbons
-calphas = atoms.select('name CA')
+calphas = atoms.select("name CA")
 
 # Create GNM and build Kirchhoff matrix
-gnm = prody.GNM('Analysis')
+gnm = prody.GNM("Analysis")
 gnm.buildKirchhoff(calphas, cutoff=10.0)
 
 # Calculate all modes

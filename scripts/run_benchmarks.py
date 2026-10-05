@@ -66,7 +66,7 @@ def _get_env_dump() -> dict:
             check=False,
         )
         env["pip_freeze"] = result.stdout.strip().split("\n")
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         env["pip_freeze"] = ["<unavailable>"]
 
     try:
@@ -78,7 +78,7 @@ def _get_env_dump() -> dict:
             check=False,
         )
         env["git_sha"] = result.stdout.strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         env["git_sha"] = "<unavailable>"
 
     return env
@@ -190,7 +190,7 @@ def _run_baselines(test_df: pd.DataFrame) -> dict:
             }
             logger.info(f"  {name}: R²={metrics['r_squared']:.4f}")
         except Exception as exc:
-            logger.warning(f"  {name} failed: {exc}")
+            logger.warning(f"  {name} failed: {exc}", exc_info=True)
             results[name] = {"error": str(exc)}
 
     return results
@@ -408,7 +408,7 @@ def _write_markdown_report(
         "tags:",
         "  - benchmarks",
         "  - phase-1",
-        f"date: {datetime.date.today().isoformat()}",
+        f"date: {datetime.datetime.now(datetime.timezone.utc).date().isoformat()}",
         "---",
         "",
         "# Phase 4 Benchmarks",
@@ -431,7 +431,9 @@ def _write_markdown_report(
             entry = vibropredict_results.get(split_name, {})
             metrics = entry.get("metrics") if isinstance(entry, dict) else None
             if metrics and "r_squared" in metrics:
-                summaries.append(f"VibroPredict on {split_name}: R²={_fmt(metrics['r_squared'])}")
+                summaries.append(
+                    f"VibroPredict on {split_name}: R²={_fmt(metrics['r_squared'])}"
+                )
         tldr = " | ".join(summaries) if summaries else "No results available."
         lines.extend(["> [!IMPORTANT]", f"> **TL;DR** — {tldr}", ""])
 
@@ -533,7 +535,10 @@ def _dry_run_pipeline() -> tuple[dict, dict, str]:
     """
     vibropredict_results: dict = {
         "random": {"status": "pending", "note": "dry run — no checkpoint provided"},
-        "ood_ec_holdout": {"status": "pending", "note": "dry run — no checkpoint provided"},
+        "ood_ec_holdout": {
+            "status": "pending",
+            "note": "dry run — no checkpoint provided",
+        },
     }
     baseline_results: dict = {}
     return vibropredict_results, baseline_results, "dry-run"
@@ -610,7 +615,9 @@ def main():
         plot_paths: list[Path] = []
     else:
         if not Path(args.kinhub).exists():
-            logger.error(f"KinHub not found at {args.kinhub} — use --dry-run or supply --kinhub.")
+            logger.error(
+                f"KinHub not found at {args.kinhub} — use --dry-run or supply --kinhub."
+            )
             sys.exit(1)
 
         kinhub_df = pd.read_csv(args.kinhub)
@@ -652,9 +659,11 @@ def main():
                         "targets": targets.tolist(),
                         "metrics": metrics,
                     }
-                    logger.info(f"VibroPredict on {split_label}: R²={metrics['r_squared']:.4f}")
+                    logger.info(
+                        f"VibroPredict on {split_label}: R²={metrics['r_squared']:.4f}"
+                    )
                 except Exception as exc:
-                    logger.error(f"VibroPredict failed on {split_label}: {exc}")
+                    logger.exception(f"VibroPredict failed on {split_label}")
                     vibropredict_results[split_label] = {"error": str(exc)}
             else:
                 vibropredict_results[split_label] = {"status": "skipped"}

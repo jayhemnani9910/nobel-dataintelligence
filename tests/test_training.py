@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
@@ -167,7 +167,12 @@ class TestTrainingConfig(unittest.TestCase):
         config = create_training_config()
 
         # All keys should be present
-        required_keys = ["batch_size", "learning_rate", "epochs", "early_stopping_patience"]
+        required_keys = [
+            "batch_size",
+            "learning_rate",
+            "epochs",
+            "early_stopping_patience",
+        ]
         for key in required_keys:
             self.assertIn(key, config)
 
@@ -185,7 +190,9 @@ class TestTrainer(unittest.TestCase):
         self.device = torch.device("cpu")
 
         # Simple model for testing
-        self.model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 1)).to(self.device)
+        self.model = nn.Sequential(nn.Linear(10, 64), nn.ReLU(), nn.Linear(64, 1)).to(
+            self.device
+        )
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         self.temp_dir = tempfile.TemporaryDirectory()

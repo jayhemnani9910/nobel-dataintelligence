@@ -74,7 +74,8 @@ class TestKinHubLoader(unittest.TestCase):
         resolved = self.loader.resolve_ambiguities(validated)
         # P12345 + CC appears twice in validated data; should be merged to one
         p12345_cc = resolved[
-            (resolved["uniprot_id"] == "P12345") & (resolved["substrate_smiles"] == "CC")
+            (resolved["uniprot_id"] == "P12345")
+            & (resolved["substrate_smiles"] == "CC")
         ]
         self.assertEqual(len(p12345_cc), 1)
 
@@ -134,7 +135,9 @@ class TestLogTransformKcat(unittest.TestCase):
         df = pd.DataFrame({"k_cat": [1.0, 10.0, 100.0, 1000.0]})
         result = log_transform_kcat(df)
         self.assertIn("log_kcat", result.columns)
-        np.testing.assert_array_almost_equal(result["log_kcat"].values, [0.0, 1.0, 2.0, 3.0])
+        np.testing.assert_array_almost_equal(
+            result["log_kcat"].values, [0.0, 1.0, 2.0, 3.0]
+        )
 
     def test_log_transform_clips_zeros(self):
         """Test zeros are clipped before transform."""

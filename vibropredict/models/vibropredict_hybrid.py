@@ -9,7 +9,7 @@ with gated tri-modal fusion for enzyme k_cat prediction.
 import logging
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from src.models.cnn import SpectralCNN
 from vibropredict.models.chemical_encoder import ChemicalEncoder
@@ -90,7 +90,7 @@ class VibroPredictHybrid(nn.Module):
         sequences: list[str],
         vdos: torch.Tensor,
         substrate_smiles: list[str],
-        product_smiles: list[str] = None,
+        product_smiles: list[str] | None = None,
         drop_spectral: bool = False,
         drop_sequence: bool = False,
         drop_chemical: bool = False,
@@ -121,12 +121,16 @@ class VibroPredictHybrid(nn.Module):
         if drop_sequence:
             h_seq = torch.zeros_like(h_seq)
 
-        h_chem = self.chem_encoder(substrate_smiles, product_smiles)  # (batch, chem_dim)
+        h_chem = self.chem_encoder(
+            substrate_smiles, product_smiles
+        )  # (batch, chem_dim)
 
         if drop_chemical:
             h_chem = torch.zeros_like(h_chem)
 
-        fused, gates = self.fusion(h_seq, h_spec, h_chem)  # (batch, fusion_dim), (batch, 3)
+        fused, gates = self.fusion(
+            h_seq, h_spec, h_chem
+        )  # (batch, fusion_dim), (batch, 3)
         logkcat = self.regressor(fused).squeeze(-1)  # (batch,)
 
         return logkcat, gates

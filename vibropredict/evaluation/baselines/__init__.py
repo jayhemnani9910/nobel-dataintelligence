@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 # Auto-discover baselines by importing them.
-from vibropredict.evaluation.baselines import stub  # noqa: F401, E402
+from vibropredict.evaluation.baselines import stub  # noqa: F401
 
 try:
     from vibropredict.evaluation.baselines import catpred  # noqa: F401

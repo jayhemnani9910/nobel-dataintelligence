@@ -78,7 +78,9 @@ class VibroEnzymePipeline:
 
         frequencies = np.sqrt(np.maximum(eigenvalues, 0)) * ENM_FREQ_CM1_PER_SQRT_EIGVAL
 
-        generator = SpectralGenerator(freq_min=0, freq_max=self.freq_max, n_points=self.n_points)
+        generator = SpectralGenerator(
+            freq_min=0, freq_max=self.freq_max, n_points=self.n_points
+        )
         vdos = generator.generate_dos(frequencies, broadening=self.broadening)
         features = generator.extract_spectral_features(vdos)
 

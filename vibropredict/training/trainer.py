@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import DataLoader
@@ -53,7 +53,11 @@ class TrainerWithMMDrop:
             log_to_wandb: If True, log metrics to Weights & Biases.
                 Requires the ``wandb`` package and a valid API key.
         """
-        if isinstance(device, str) and device.startswith("cuda") and not torch.cuda.is_available():
+        if (
+            isinstance(device, str)
+            and device.startswith("cuda")
+            and not torch.cuda.is_available()
+        ):
             logger.warning("CUDA requested but not available; falling back to CPU.")
             device = "cpu"
 
@@ -129,7 +133,9 @@ class TrainerWithMMDrop:
             if batch is None:
                 continue
 
-            sequences, vdos, substrate_smiles, product_smiles, log_kcat = self._unpack_batch(batch)
+            sequences, vdos, substrate_smiles, product_smiles, log_kcat = (
+                self._unpack_batch(batch)
+            )
 
             # Randomly decide whether to drop spectral modality
             drop_spectral = bool(np.random.rand() < p_drop)
@@ -197,11 +203,11 @@ class TrainerWithMMDrop:
                 if batch is None:
                     continue
 
-                sequences, vdos, substrate_smiles, product_smiles, log_kcat = self._unpack_batch(
-                    batch
+                sequences, vdos, substrate_smiles, product_smiles, log_kcat = (
+                    self._unpack_batch(batch)
                 )
 
-                logkcat, gates = self.model(
+                logkcat, _gates = self.model(
                     sequences, vdos, substrate_smiles, product_smiles, False
                 )
 
@@ -305,7 +311,9 @@ class TrainerWithMMDrop:
 
             if stopper.step(val_loss):
                 logger.info(f"\nEarly stopping at epoch {epoch}")
-                logger.info(f"Best epoch: {self.best_epoch} with loss {self.best_val_loss:.4f}")
+                logger.info(
+                    f"Best epoch: {self.best_epoch} with loss {self.best_val_loss:.4f}"
+                )
                 break
             else:
                 logger.info(f"Patience: {stopper.counter}/{patience}")

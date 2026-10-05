@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import DataLoader
@@ -48,7 +48,11 @@ class Trainer:
             device: 'cuda' or 'cpu'
             checkpoint_dir: Directory for saving checkpoints
         """
-        if isinstance(device, str) and device.startswith("cuda") and not torch.cuda.is_available():
+        if (
+            isinstance(device, str)
+            and device.startswith("cuda")
+            and not torch.cuda.is_available()
+        ):
             logger.warning("CUDA requested but not available; falling back to CPU.")
             device = "cpu"
 
@@ -83,7 +87,9 @@ class Trainer:
         elif "spectrum" in batch:
             spectra = batch["spectrum"]
         else:
-            raise KeyError("Batch missing required key 'spectra' (or legacy 'spectrum').")
+            raise KeyError(
+                "Batch missing required key 'spectra' (or legacy 'spectrum')."
+            )
 
         if "graph" not in batch:
             raise KeyError("Batch missing required key 'graph'.")
@@ -122,7 +128,9 @@ class Trainer:
             graph, spectra, labels, global_features = self._unpack_batch(batch)
 
             # Forward pass
-            outputs = self.model(graph, spectra, global_features=global_features, task=task)
+            outputs = self.model(
+                graph, spectra, global_features=global_features, task=task
+            )
 
             # Compute loss
             if task == "novozymes":
@@ -181,7 +189,9 @@ class Trainer:
                 graph, spectra, labels, global_features = self._unpack_batch(batch)
 
                 # Forward pass
-                outputs = self.model(graph, spectra, global_features=global_features, task=task)
+                outputs = self.model(
+                    graph, spectra, global_features=global_features, task=task
+                )
 
                 # Compute loss
                 if task == "novozymes":
@@ -257,7 +267,9 @@ class Trainer:
             # Learning rate scheduling
             if self.scheduler is not None:
                 self.scheduler.step(val_metrics["val_loss"])
-                logger.info(f"Learning rate: {self.optimizer.param_groups[0]['lr']:.6f}")
+                logger.info(
+                    f"Learning rate: {self.optimizer.param_groups[0]['lr']:.6f}"
+                )
 
             # Checkpointing and early stopping
             val_loss = val_metrics["val_loss"]
@@ -269,7 +281,9 @@ class Trainer:
 
             if stopper.step(val_loss):
                 logger.info(f"\nEarly stopping at epoch {epoch}")
-                logger.info(f"Best epoch: {self.best_epoch} with loss {self.best_val_loss:.4f}")
+                logger.info(
+                    f"Best epoch: {self.best_epoch} with loss {self.best_val_loss:.4f}"
+                )
                 break
             else:
                 logger.info(f"Patience: {stopper.counter}/{early_stopping_patience}")
@@ -372,7 +386,9 @@ class MetricComputer:
         predictions: np.ndarray, targets: np.ndarray, threshold_range: np.ndarray = None
     ) -> float:
         """Backward-compatible alias for :meth:`f_max`."""
-        return MetricComputer.f_max(predictions, targets, threshold_range=threshold_range)
+        return MetricComputer.f_max(
+            predictions, targets, threshold_range=threshold_range
+        )
 
     @staticmethod
     def mean_squared_error(predictions: np.ndarray, targets: np.ndarray) -> float:
@@ -385,7 +401,9 @@ class MetricComputer:
         return np.mean(np.abs(predictions - targets))
 
     @staticmethod
-    def accuracy(predictions: np.ndarray, targets: np.ndarray, threshold: float = 0.5) -> float:
+    def accuracy(
+        predictions: np.ndarray, targets: np.ndarray, threshold: float = 0.5
+    ) -> float:
         """Compute classification accuracy (for binary/multi-label)."""
         pred_binary = (predictions >= threshold).astype(int)
         return np.mean(pred_binary == targets)

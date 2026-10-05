@@ -8,7 +8,7 @@ with learned per-residue attention pooling.
 import logging
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,9 @@ class ProtT5Encoder(nn.Module):
         from transformers import T5EncoderModel, T5Tokenizer  # type: ignore
 
         logger.info(f"Loading ProtT5 model: {self.model_name}")
-        self._tokenizer = T5Tokenizer.from_pretrained(self.model_name, do_lower_case=False)
+        self._tokenizer = T5Tokenizer.from_pretrained(
+            self.model_name, do_lower_case=False
+        )
         self._encoder = T5EncoderModel.from_pretrained(self.model_name)
         self._encoder = self._encoder.to(device)
         self._encoder.eval()
@@ -95,7 +97,9 @@ class ProtT5Encoder(nn.Module):
         embeddings = encoder_output.last_hidden_state
 
         # Attention pooling
-        attn_weights = torch.softmax(self.attention(embeddings), dim=1)  # (batch, seq_len, 1)
+        attn_weights = torch.softmax(
+            self.attention(embeddings), dim=1
+        )  # (batch, seq_len, 1)
         pooled = torch.sum(attn_weights * embeddings, dim=1)  # (batch, 1024)
 
         return pooled

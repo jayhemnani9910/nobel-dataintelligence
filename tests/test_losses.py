@@ -3,7 +3,7 @@
 import unittest
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from src.models.losses import (
     CombinedLoss,
@@ -129,7 +129,7 @@ class TestCombinedLoss(unittest.TestCase):
         combined = CombinedLoss(loss_fns)
 
         # Only provide task_a
-        total, individual = combined(
+        _total, individual = combined(
             task_a={"input": torch.randn(4), "target": torch.randn(4)},
         )
         self.assertIn("task_a", individual)

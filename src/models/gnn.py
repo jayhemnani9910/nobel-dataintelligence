@@ -8,14 +8,18 @@ and extract structural embeddings.
 import logging
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from src.utils import AA_TO_IDX, HYDROPHOBICITY
 
 try:
     from torch_geometric.data import Data  # type: ignore
-    from torch_geometric.nn import GATv2Conv, global_max_pool, global_mean_pool  # type: ignore
+    from torch_geometric.nn import (  # type: ignore
+        GATv2Conv,
+        global_max_pool,
+        global_mean_pool,
+    )
 except ImportError as exc:  # pragma: no cover
     raise ImportError(
         "torch_geometric is required for `src.models.gnn`. Install it (and its compiled dependencies) "
@@ -182,12 +186,16 @@ class GraphConstruction:
             edge_attr = None
 
         # Create PyG Data object
-        data = Data(x=ca_features, edge_index=edge_index, edge_attr=edge_attr, pos=ca_coords)
+        data = Data(
+            x=ca_features, edge_index=edge_index, edge_attr=edge_attr, pos=ca_coords
+        )
 
         return data
 
     @staticmethod
-    def construct_residue_features(sequence: str, pldt_scores: torch.Tensor = None) -> torch.Tensor:
+    def construct_residue_features(
+        sequence: str, pldt_scores: torch.Tensor = None
+    ) -> torch.Tensor:
         """
         Construct node feature vectors from amino acid sequence.
 

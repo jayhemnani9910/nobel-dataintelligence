@@ -45,10 +45,22 @@ def run_ablation(
     variants: list[dict] = []
 
     for variant_name, config in [
-        ("full", {"drop_spectral": False, "drop_sequence": False, "drop_chemical": False}),
-        ("no_spectral", {"drop_spectral": True, "drop_sequence": False, "drop_chemical": False}),
-        ("no_sequence", {"drop_spectral": False, "drop_sequence": True, "drop_chemical": False}),
-        ("no_chemical", {"drop_spectral": False, "drop_sequence": False, "drop_chemical": True}),
+        (
+            "full",
+            {"drop_spectral": False, "drop_sequence": False, "drop_chemical": False},
+        ),
+        (
+            "no_spectral",
+            {"drop_spectral": True, "drop_sequence": False, "drop_chemical": False},
+        ),
+        (
+            "no_sequence",
+            {"drop_spectral": False, "drop_sequence": True, "drop_chemical": False},
+        ),
+        (
+            "no_chemical",
+            {"drop_spectral": False, "drop_sequence": False, "drop_chemical": True},
+        ),
     ]:
         all_preds = []
         all_targets = []
@@ -67,7 +79,7 @@ def run_ablation(
                 # Each variant zeroes the corresponding modality embedding
                 # inside the model via the drop_* flags, so the fusion layer
                 # sees a genuinely ablated input (not a re-run of the full model).
-                logkcat, gates = model(
+                logkcat, _gates = model(
                     sequences,
                     vdos,
                     substrate_smiles,

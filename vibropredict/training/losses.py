@@ -6,8 +6,8 @@ to preserve relative ordering among enzyme mutants.
 """
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class MutantRankingLoss(nn.Module):

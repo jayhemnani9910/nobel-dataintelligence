@@ -34,7 +34,9 @@ def _load_fasta_ids(fasta_path: Path) -> list[str]:
     return list(parse_fasta(str(fasta_path)).keys())
 
 
-def _write_novozymes_submission(out_path: Path, seq_ids: Iterable[str], preds: np.ndarray) -> None:
+def _write_novozymes_submission(
+    out_path: Path, seq_ids: Iterable[str], preds: np.ndarray
+) -> None:
     df = pd.DataFrame({"seq_id": list(seq_ids), "tm": preds.astype(float)})
     df.to_csv(out_path, index=False)
 
@@ -44,7 +46,9 @@ def _write_cafa5_submission(
 ) -> None:
     rows = []
     for pid, terms in zip(protein_ids, go_terms_per_protein, strict=False):
-        rows.append({"protein_id": pid, "go_terms": " ".join(terms) if terms else "GO:0005575"})
+        rows.append(
+            {"protein_id": pid, "go_terms": " ".join(terms) if terms else "GO:0005575"}
+        )
     pd.DataFrame(rows).to_csv(out_path, index=False)
 
 
@@ -254,31 +258,45 @@ def run_predict_kcat(
     print(f"Predicted log10(k_cat): {result['predicted_log_kcat']}")
     print(f"Predicted k_cat: {result['predicted_kcat']} s⁻¹")
     gw = result["gate_weights"]
-    print(f"Attention gates: seq={gw['sequence']} spec={gw['spectral']} chem={gw['chemical']}")
+    print(
+        f"Attention gates: seq={gw['sequence']} spec={gw['spectral']} chem={gw['chemical']}"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="qdd", description="Quantum Data Decoder pipelines")
+    p = argparse.ArgumentParser(
+        prog="qdd", description="Quantum Data Decoder pipelines"
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    p_novo = sub.add_parser("novozymes", help="Train + predict Novozymes; write submission CSV")
+    p_novo = sub.add_parser(
+        "novozymes", help="Train + predict Novozymes; write submission CSV"
+    )
     p_novo.add_argument("--data-dir", type=Path, default=Path("./data/kaggle"))
-    p_novo.add_argument("--out", type=Path, default=Path("./submissions/novozymes_submission.csv"))
+    p_novo.add_argument(
+        "--out", type=Path, default=Path("./submissions/novozymes_submission.csv")
+    )
     p_novo.add_argument("--epochs", type=int, default=5)
     p_novo.add_argument("--batch-size", type=int, default=16)
     p_novo.add_argument("--seed", type=int, default=42)
     p_novo.add_argument("--device", type=str, default=None, help="cpu or cuda")
 
-    p_cafa = sub.add_parser("cafa5", help="Predict CAFA5; write predictions/submission CSV")
+    p_cafa = sub.add_parser(
+        "cafa5", help="Predict CAFA5; write predictions/submission CSV"
+    )
     p_cafa.add_argument("--data-dir", type=Path, default=Path("./data/cafa5"))
-    p_cafa.add_argument("--out", type=Path, default=Path("./submissions/cafa5_predictions.csv"))
+    p_cafa.add_argument(
+        "--out", type=Path, default=Path("./submissions/cafa5_predictions.csv")
+    )
     p_cafa.add_argument("--top-k-terms", type=int, default=25)
 
     # Inference commands
     p_ps = sub.add_parser("predict-stability", help="Predict Tm for a protein sequence")
     p_ps.add_argument("--sequence", type=str, required=True, help="Amino acid sequence")
     p_ps.add_argument("--pH", type=float, default=7.0)
-    p_ps.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/novozymes_best.pt"))
+    p_ps.add_argument(
+        "--checkpoint", type=Path, default=Path("./checkpoints/novozymes_best.pt")
+    )
     p_ps.add_argument("--device", type=str, default=None)
     p_ps.add_argument(
         "--pdb",
@@ -287,11 +305,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional PDB structure for real NMA-derived VDOS (recommended)",
     )
 
-    p_pk = sub.add_parser("predict-kcat", help="Predict k_cat for an enzyme-substrate pair")
+    p_pk = sub.add_parser(
+        "predict-kcat", help="Predict k_cat for an enzyme-substrate pair"
+    )
     p_pk.add_argument("--sequence", type=str, required=True, help="Amino acid sequence")
     p_pk.add_argument("--smiles", type=str, required=True, help="Substrate SMILES")
-    p_pk.add_argument("--product-smiles", type=str, default=None, help="Product SMILES (optional)")
-    p_pk.add_argument("--checkpoint", type=Path, default=Path("./checkpoints/vibropredict_best.pt"))
+    p_pk.add_argument(
+        "--product-smiles", type=str, default=None, help="Product SMILES (optional)"
+    )
+    p_pk.add_argument(
+        "--checkpoint", type=Path, default=Path("./checkpoints/vibropredict_best.pt")
+    )
     p_pk.add_argument("--device", type=str, default=None)
     p_pk.add_argument(
         "--pdb",
@@ -320,7 +344,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "cafa5":
-        run_cafa5(data_dir=args.data_dir, out_path=args.out, top_k_terms=args.top_k_terms)
+        run_cafa5(
+            data_dir=args.data_dir, out_path=args.out, top_k_terms=args.top_k_terms
+        )
         return 0
 
     if args.cmd == "predict-stability":

@@ -106,7 +106,9 @@ class EnzymeKineticsDataset(Dataset):
         log_kcat = float(row["log_kcat"])
         substrate_smiles = str(row.get("substrate_smiles", ""))
         product_smiles = (
-            str(row.get("product_smiles", "")) if pd.notna(row.get("product_smiles")) else ""
+            str(row.get("product_smiles", ""))
+            if pd.notna(row.get("product_smiles"))
+            else ""
         )
         mutation = str(row.get("mutation", "")) if pd.notna(row.get("mutation")) else ""
 

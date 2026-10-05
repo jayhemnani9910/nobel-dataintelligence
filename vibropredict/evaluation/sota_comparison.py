@@ -125,7 +125,7 @@ def run_live_comparison(
             results[name] = metrics
             logger.info(f"{name}: R²={metrics['r_squared']:.4f}")
         except Exception as exc:
-            logger.warning(f"{name} failed: {exc}")
+            logger.warning(f"{name} failed: {exc}", exc_info=True)
             results[name] = {
                 "rmse": float("nan"),
                 "r_squared": float("nan"),

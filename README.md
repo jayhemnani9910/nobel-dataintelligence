@@ -77,7 +77,9 @@ logkcat, gates = model(
     substrate_smiles=["CC(=O)O"],
 )
 print(f"k_cat = {10**logkcat:.1f} s⁻¹")
-print(f"Attention gates: seq={gates[0,0]:.2f} spec={gates[0,1]:.2f} chem={gates[0,2]:.2f}")
+print(
+    f"Attention gates: seq={gates[0, 0]:.2f} spec={gates[0, 1]:.2f} chem={gates[0, 2]:.2f}"
+)
 ```
 
 ### Train with MM-Drop
@@ -87,9 +89,12 @@ from vibropredict.training import TrainerWithMMDrop, MutantRankingLoss
 
 trainer = TrainerWithMMDrop(model, optimizer, device="cuda")
 trainer.fit(
-    train_loader, val_loader,
+    train_loader,
+    val_loader,
     loss_fn=MutantRankingLoss(lambda_rank=0.1),
-    epochs=50, p_drop=0.25, patience=10,
+    epochs=50,
+    p_drop=0.25,
+    patience=10,
 )
 ```
 

@@ -15,17 +15,18 @@ import pytest
 
 pr = pytest.importorskip("prody")
 
-from vibropredict.spectra.gnm_calculator import GNMCalculator  # noqa: E402
-from vibropredict.spectra.vdos_engine import VibroEnzymePipeline  # noqa: E402
-from src.nma_analysis import ENM_FREQ_CM1_PER_SQRT_EIGVAL  # noqa: E402
+from src.nma_analysis import ENM_FREQ_CM1_PER_SQRT_EIGVAL
+from vibropredict.spectra.gnm_calculator import GNMCalculator
 
 
 def _helix(n=40):
     """Ideal alpha-helix CA trace as a ProDy AtomGroup."""
     t = np.arange(n)
-    coords = np.c_[2.3 * np.cos(t * 100 * np.pi / 180),
-                   2.3 * np.sin(t * 100 * np.pi / 180),
-                   1.5 * t].astype(float)
+    coords = np.c_[
+        2.3 * np.cos(t * 100 * np.pi / 180),
+        2.3 * np.sin(t * 100 * np.pi / 180),
+        1.5 * t,
+    ].astype(float)
     ag = pr.AtomGroup("helix")
     ag.setCoords(coords)
     ag.setNames(["CA"] * n)
@@ -52,6 +53,7 @@ def _blob(n=40, seed=0):
 
 def _vdos_from_coords(ag, npts=1000, fmax=500.0, broadening=5.0):
     from src.spectral_generation import SpectralGenerator
+
     gc = GNMCalculator(cutoff=10.0)
     ev, _ = gc.compute_from_coords(ag.getCoords())
     freqs = np.sqrt(np.maximum(ev, 0)) * ENM_FREQ_CM1_PER_SQRT_EIGVAL
@@ -74,6 +76,7 @@ def test_vdos_peak_not_in_bin_zero():
 def test_distinct_folds_give_distinct_vdos():
     v_helix, _ = _vdos_from_coords(_helix())
     v_blob, _ = _vdos_from_coords(_blob())
-    cos = float(np.dot(v_helix, v_blob) /
-                (np.linalg.norm(v_helix) * np.linalg.norm(v_blob)))
+    cos = float(
+        np.dot(v_helix, v_blob) / (np.linalg.norm(v_helix) * np.linalg.norm(v_blob))
+    )
     assert cos < 0.999, f"helix and blob VDOS nearly identical (cos={cos:.6f})"

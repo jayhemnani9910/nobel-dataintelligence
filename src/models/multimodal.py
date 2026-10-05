@@ -8,8 +8,8 @@ architecture for stability and function prediction.
 import logging
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,9 @@ class VibroStructuralFusion(nn.Module):
     - Cross-attention (learnable interaction weights)
     """
 
-    def __init__(self, latent_dim: int = 128, fusion_type: str = "bilinear", dropout: float = 0.1):
+    def __init__(
+        self, latent_dim: int = 128, fusion_type: str = "bilinear", dropout: float = 0.1
+    ):
         """
         Initialize fusion layer.
 
@@ -55,7 +57,9 @@ class VibroStructuralFusion(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, structural_emb: torch.Tensor, spectral_emb: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, structural_emb: torch.Tensor, spectral_emb: torch.Tensor
+    ) -> torch.Tensor:
         """
         Fuse structural and spectral embeddings.
 
@@ -80,7 +84,9 @@ class VibroStructuralFusion(nn.Module):
             v = self.v_proj(spectral_emb)  # (B, latent_dim)
 
             # Scalar gating between modalities (0..1)
-            gate = torch.sigmoid((q * k).sum(dim=-1, keepdim=True) * self.scale)  # (B, 1)
+            gate = torch.sigmoid(
+                (q * k).sum(dim=-1, keepdim=True) * self.scale
+            )  # (B, 1)
 
             # Weighted sum of value with structural embedding
             fused = gate * v + (1 - gate) * structural_emb  # (B, latent_dim)
@@ -139,8 +145,12 @@ class VibroStructuralModel(nn.Module):
             from src.models.gnn import ProteinGNN
 
         # Encoders
-        self.gnn_encoder = ProteinGNN(input_dim=gnn_input_dim, hidden_dim=64, output_dim=latent_dim)
-        self.cnn_encoder = SpectralCNN(input_channels=1, hidden_channels=32, output_dim=latent_dim)
+        self.gnn_encoder = ProteinGNN(
+            input_dim=gnn_input_dim, hidden_dim=64, output_dim=latent_dim
+        )
+        self.cnn_encoder = SpectralCNN(
+            input_channels=1, hidden_channels=32, output_dim=latent_dim
+        )
 
         # Fusion layer
         self.fusion = VibroStructuralFusion(
@@ -184,7 +194,12 @@ class VibroStructuralModel(nn.Module):
         logger.info("Initialized VibroStructuralModel")
 
     def forward(
-        self, graph_data, spectra, global_features=None, taxon_ids=None, task: str = "novozymes"
+        self,
+        graph_data,
+        spectra,
+        global_features=None,
+        taxon_ids=None,
+        task: str = "novozymes",
     ):
         """
         Forward pass through multimodal model.

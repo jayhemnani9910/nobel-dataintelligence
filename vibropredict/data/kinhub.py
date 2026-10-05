@@ -45,7 +45,9 @@ class KinHubLoader:
         df = pd.read_csv(self.csv_path)
         missing = set(REQUIRED_COLUMNS) - set(df.columns)
         if missing:
-            raise ValueError(f"KinHub CSV is missing required columns: {sorted(missing)}")
+            raise ValueError(
+                f"KinHub CSV is missing required columns: {sorted(missing)}"
+            )
         logger.info(f"Loaded {len(df)} rows from {self.csv_path}")
         return df
 

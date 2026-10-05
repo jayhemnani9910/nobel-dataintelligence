@@ -127,7 +127,9 @@ def run_audit(
 
     # Normalize SMILES
     if "substrate_smiles" in kinhub_df.columns:
-        kinhub_df["substrate_smiles_norm"] = kinhub_df["substrate_smiles"].apply(_normalize_smiles)
+        kinhub_df["substrate_smiles_norm"] = kinhub_df["substrate_smiles"].apply(
+            _normalize_smiles
+        )
     else:
         logger.error("KinHub CSV missing 'substrate_smiles' column.")
         sys.exit(1)
@@ -182,12 +184,16 @@ def run_audit(
         sys.exit(1)
 
     # Outer join on (uniprot_id, normalized_smiles)
-    kinhub_keys = kinhub_df[["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]].copy()
+    kinhub_keys = kinhub_df[
+        ["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]
+    ].copy()
     kinhub_keys["in_kinhub"] = True
     if "kcat_kinhub" in kinhub_df.columns:
         kinhub_keys["kcat_kinhub"] = kinhub_df["kcat_kinhub"]
 
-    realkcat_keys = realkcat_df[["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]].copy()
+    realkcat_keys = realkcat_df[
+        ["uniprot_id", "substrate_smiles_norm", "substrate_smiles"]
+    ].copy()
     realkcat_keys["in_realkcat"] = True
     if "kcat_realkcat" in realkcat_df.columns:
         realkcat_keys["kcat_realkcat"] = realkcat_df["kcat_realkcat"]
@@ -244,7 +250,9 @@ def run_audit(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Audit KinHub vs RealKcat dataset overlap.")
+    parser = argparse.ArgumentParser(
+        description="Audit KinHub vs RealKcat dataset overlap."
+    )
     parser.add_argument(
         "--kinhub",
         type=str,

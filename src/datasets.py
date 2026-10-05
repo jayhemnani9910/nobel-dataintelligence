@@ -59,10 +59,14 @@ def _normalize_cafa_terms_df(df: pd.DataFrame) -> pd.DataFrame:
         out = df[["protein_id", "go_id"]].rename(columns={"protein_id": "target_id"})
         return out
     if {"EntryID", "term"}.issubset(df.columns):
-        out = df[["EntryID", "term"]].rename(columns={"EntryID": "target_id", "term": "go_id"})
+        out = df[["EntryID", "term"]].rename(
+            columns={"EntryID": "target_id", "term": "go_id"}
+        )
         return out
     if {"entry_id", "term"}.issubset(df.columns):
-        out = df[["entry_id", "term"]].rename(columns={"entry_id": "target_id", "term": "go_id"})
+        out = df[["entry_id", "term"]].rename(
+            columns={"entry_id": "target_id", "term": "go_id"}
+        )
         return out
 
     raise ValueError(
@@ -121,7 +125,7 @@ class ProteinStructureDataset(Dataset):
         try:
             structure = pr.parsePDB(pdb_file)
         except Exception as e:
-            logger.warning(f"Failed to load {pdb_file}: {e}")
+            logger.warning(f"Failed to load {pdb_file}: {e}", exc_info=True)
             return None
 
         # Load spectrum
@@ -140,9 +144,17 @@ class ProteinStructureDataset(Dataset):
             if not row.empty:
                 if "label" in row.columns:
                     label = float(row["label"].values[0])
-                if "entropy" in row.columns and "sasa" in row.columns and "zpe" in row.columns:
+                if (
+                    "entropy" in row.columns
+                    and "sasa" in row.columns
+                    and "zpe" in row.columns
+                ):
                     global_features = np.array(
-                        [row["entropy"].values[0], row["sasa"].values[0], row["zpe"].values[0]],
+                        [
+                            row["entropy"].values[0],
+                            row["sasa"].values[0],
+                            row["zpe"].values[0],
+                        ],
                         dtype=np.float32,
                     )
 
@@ -173,7 +185,9 @@ class ProteinStructureDataset(Dataset):
             sample["labels"] = torch.tensor(label, dtype=torch.float32)
 
         if global_features is not None:
-            sample["global_features"] = torch.tensor(global_features, dtype=torch.float32)
+            sample["global_features"] = torch.tensor(
+                global_features, dtype=torch.float32
+            )
 
         return sample
 
@@ -186,7 +200,11 @@ class NovozymesDataset(Dataset):
     """
 
     def __init__(
-        self, csv_file: str, structure_file: str, spectra_dir: str, include_updates: bool = True
+        self,
+        csv_file: str,
+        structure_file: str,
+        spectra_dir: str,
+        include_updates: bool = True,
     ):
         """
         Initialize Novozymes dataset.
@@ -222,7 +240,8 @@ class NovozymesDataset(Dataset):
                 self._wt_ca_coords = torch.tensor(ca.getCoords(), dtype=torch.float32)
         except Exception as exc:
             logger.warning(
-                f"Failed to parse Novozymes wildtype structure '{structure_file}': {exc}"
+                f"Failed to parse Novozymes wildtype structure '{structure_file}': {exc}",
+                exc_info=True,
             )
         self.spectra_dir = Path(spectra_dir)
         self._wt_spectrum_cache = None
@@ -256,7 +275,9 @@ class NovozymesDataset(Dataset):
 
         features = GraphConstruction.construct_residue_features(sequence)
         # Use wildtype coordinates when compatible; otherwise fall back to deterministic pseudo-coordinates.
-        if self._wt_ca_coords is not None and len(sequence) == self._wt_ca_coords.size(0):
+        if self._wt_ca_coords is not None and len(sequence) == self._wt_ca_coords.size(
+            0
+        ):
             coords = self._wt_ca_coords
         else:
             # Deterministic coordinates based on index to avoid randomness in data loading.
@@ -269,7 +290,9 @@ class NovozymesDataset(Dataset):
                 dim=1,
             )
 
-        graph = GraphConstruction.construct_ca_graph(coords, features, distance_cutoff=10.0)
+        graph = GraphConstruction.construct_ca_graph(
+            coords, features, distance_cutoff=10.0
+        )
 
         # Global features: [entropy, pH, dummy_sasa]
         global_features = torch.tensor([0.0, pH, 0.0], dtype=torch.float32)
@@ -336,7 +359,9 @@ class CAFA5Dataset(Dataset):
         self.structure_dir = Path(structure_dir)
 
         self._protein_ids = list(self.sequences.keys())
-        logger.info(f"CAFA5 dataset: {len(self.sequences)} proteins, {len(self.go_terms)} GO terms")
+        logger.info(
+            f"CAFA5 dataset: {len(self.sequences)} proteins, {len(self.go_terms)} GO terms"
+        )
 
     def _load_fasta(self, fasta_file: str):
         """Load FASTA sequences."""
@@ -375,7 +400,9 @@ class CAFA5Dataset(Dataset):
             dim=1,
         )
 
-        graph = GraphConstruction.construct_ca_graph(coords, features, distance_cutoff=10.0)
+        graph = GraphConstruction.construct_ca_graph(
+            coords, features, distance_cutoff=10.0
+        )
 
         sample = {
             "protein_id": protein_id,
@@ -386,7 +413,9 @@ class CAFA5Dataset(Dataset):
 
         # Add labels only when a terms file was provided.
         if not self.terms_df.empty:
-            go_labels = self.terms_df[self.terms_df["target_id"] == protein_id]["go_id"].values
+            go_labels = self.terms_df[self.terms_df["target_id"] == protein_id][
+                "go_id"
+            ].values
             label_vector = np.zeros(len(self.go_terms), dtype=np.float32)
             for go in go_labels:
                 if go in self.go_to_idx:

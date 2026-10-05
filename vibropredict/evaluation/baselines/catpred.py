@@ -35,7 +35,9 @@ logger = logging.getLogger(__name__)
 def _check_catpred_available() -> str:
     """Return 'local' if CatPred is importable, otherwise 'unavailable'."""
     try:
-        spec = importlib.util.find_spec("vibropredict.evaluation.baselines._vendored.catpred")
+        spec = importlib.util.find_spec(
+            "vibropredict.evaluation.baselines._vendored.catpred"
+        )
         if spec is not None:
             return "local"
     except (ModuleNotFoundError, ValueError):

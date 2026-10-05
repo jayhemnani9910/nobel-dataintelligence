@@ -19,7 +19,7 @@ import pytest
 
 pr = pytest.importorskip("prody")
 
-from src.nma_analysis import ENM_FREQ_CM1_PER_SQRT_EIGVAL, ANMAnalyzer  # noqa: E402
+from src.nma_analysis import ENM_FREQ_CM1_PER_SQRT_EIGVAL, ANMAnalyzer
 
 
 def _make_ca(coords: np.ndarray):
@@ -38,7 +38,9 @@ def _make_ca(coords: np.ndarray):
 
 def _helix(n: int = 30) -> np.ndarray:
     """Idealized alpha-helix-like C-alpha trace."""
-    return np.array([[1.5 * np.cos(i * 1.7), 1.5 * np.sin(i * 1.7), i * 1.5] for i in range(n)])
+    return np.array(
+        [[1.5 * np.cos(i * 1.7), 1.5 * np.sin(i * 1.7), i * 1.5] for i in range(n)]
+    )
 
 
 def _blob(n: int = 30, seed: int = 1) -> np.ndarray:

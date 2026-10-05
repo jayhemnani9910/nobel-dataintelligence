@@ -23,7 +23,9 @@ class SpectralGenerator:
     - IR-active spectrum (intensity from dipole derivatives)
     """
 
-    def __init__(self, freq_min: float = 0, freq_max: float = 500, n_points: int = 1000):
+    def __init__(
+        self, freq_min: float = 0, freq_max: float = 500, n_points: int = 1000
+    ):
         """
         Initialize spectral generator.
 
@@ -89,7 +91,10 @@ class SpectralGenerator:
         return spectrum
 
     def generate_raman_spectrum(
-        self, frequencies: np.ndarray, collectivities: np.ndarray, broadening: float = 5.0
+        self,
+        frequencies: np.ndarray,
+        collectivities: np.ndarray,
+        broadening: float = 5.0,
     ) -> np.ndarray:
         """
         Generate Raman-weighted spectrum.
@@ -113,7 +118,10 @@ class SpectralGenerator:
         )
 
     def generate_ir_spectrum(
-        self, frequencies: np.ndarray, ir_activities: np.ndarray, broadening: float = 5.0
+        self,
+        frequencies: np.ndarray,
+        ir_activities: np.ndarray,
+        broadening: float = 5.0,
     ) -> np.ndarray:
         """
         Generate IR-active spectrum.
@@ -134,7 +142,9 @@ class SpectralGenerator:
             frequencies, broadening=broadening, intensity_weighting=ir_activities
         )
 
-    def apply_instrumental_response(self, spectrum: np.ndarray, fwhm: float = 10.0) -> np.ndarray:
+    def apply_instrumental_response(
+        self, spectrum: np.ndarray, fwhm: float = 10.0
+    ) -> np.ndarray:
         """
         Apply instrumental broadening (Gaussian convolution).
 
@@ -202,7 +212,9 @@ class SpectralGenerator:
             "peak_frequency": float(
                 self.freq_axis[int(np.argmax(spectrum))]
             ),  # Frequency of highest peak
-            "centroid": float(np.sum(self.freq_axis * spectrum) / total_intensity),  # Centroid
+            "centroid": float(
+                np.sum(self.freq_axis * spectrum) / total_intensity
+            ),  # Centroid
             "std_dev": float(
                 np.sqrt(
                     np.sum(((self.freq_axis - np.mean(self.freq_axis)) ** 2) * spectrum)
@@ -215,8 +227,8 @@ class SpectralGenerator:
 
         # Count local maxima above 10% of the global maximum.
         threshold = 0.1 * float(np.max(spectrum))
-        peaks, props = find_peaks(spectrum, height=threshold)
-        features["num_peaks"] = int(len(peaks))
+        peaks, _props = find_peaks(spectrum, height=threshold)
+        features["num_peaks"] = len(peaks)
 
         return features
 
@@ -242,7 +254,9 @@ class SpectralGenerator:
         kurtosis = m4 / (m2**2) - 3 if m2 > 0 else 0
         return kurtosis
 
-    def compute_spectral_correlation(self, spectrum1: np.ndarray, spectrum2: np.ndarray) -> float:
+    def compute_spectral_correlation(
+        self, spectrum1: np.ndarray, spectrum2: np.ndarray
+    ) -> float:
         """
         Compute correlation between two spectra (for structure comparison).
 
@@ -302,10 +316,13 @@ class DeltaSpectralFeatures:
 
         delta_features = {
             "delta_integral": features_mut["integral"] - features_wt["integral"],
-            "delta_peak_height": features_mut["peak_height"] - features_wt["peak_height"],
+            "delta_peak_height": features_mut["peak_height"]
+            - features_wt["peak_height"],
             "delta_centroid": features_mut["centroid"] - features_wt["centroid"],
             "delta_entropy_j_mol_k": freq_vib_mut - freq_vib_wt,
-            "spectral_correlation": self.sg.compute_spectral_correlation(spectrum_wt, spectrum_mut),
+            "spectral_correlation": self.sg.compute_spectral_correlation(
+                spectrum_wt, spectrum_mut
+            ),
             "spectral_l2_norm": np.linalg.norm(delta_spectrum),
         }
 

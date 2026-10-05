@@ -126,7 +126,9 @@ class TestECHoldoutSplit:
         for key, split_df in splits.items():
             if "ec_class" not in split_df.columns:
                 split_df = split_df.copy()
-                split_df["ec_class"] = split_df["ec_number"].apply(lambda x: str(x).split(".")[0])
+                split_df["ec_class"] = split_df["ec_number"].apply(
+                    lambda x: str(x).split(".")[0]
+                )
                 splits[key] = split_df
 
         train_classes = set(splits["train"]["ec_class"])

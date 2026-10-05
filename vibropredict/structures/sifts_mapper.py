@@ -97,8 +97,12 @@ class SIFTSMapper:
                         }
                     )
 
-        df = pd.DataFrame(rows, columns=["uniprot_id", "pdb_id", "chain", "resolution", "coverage"])
-        logger.info(f"SIFTS mapping: {len(uniprot_ids)} UniProt IDs -> {len(df)} PDB candidates")
+        df = pd.DataFrame(
+            rows, columns=["uniprot_id", "pdb_id", "chain", "resolution", "coverage"]
+        )
+        logger.info(
+            f"SIFTS mapping: {len(uniprot_ids)} UniProt IDs -> {len(df)} PDB candidates"
+        )
         return df
 
     def select_best(self, candidates: pd.DataFrame) -> pd.DataFrame:

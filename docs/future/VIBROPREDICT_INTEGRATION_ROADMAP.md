@@ -94,7 +94,7 @@ from src.models.cnn import SpectralCNN
 spectral_encoder = SpectralCNN(
     latent_dim=128,
     dropout=0.2,
-    input_shape=(1, 1024)  # VDOS vector
+    input_shape=(1, 1024),  # VDOS vector
 )
 ```
 
@@ -117,10 +117,11 @@ spectral_encoder = SpectralCNN(
 ```python
 # vibropredict/data/kinhub.py (NEW)
 
+
 class KinHubDataset:
     """
     Load and parse KinHub-27k entries
-    
+
     Attributes:
         - uniprot_id: UniProt accession
         - kinetic_values: {k_cat, K_m}
@@ -128,7 +129,7 @@ class KinHubDataset:
         - substrate_smiles: Canonicalized SMILES
         - mutation: Optional point mutation
         - source_paper: PubMed ID / DOI
-    
+
     Methods:
         - parse_kinhub_csv()
         - validate_sequence()
@@ -146,10 +147,11 @@ class KinHubDataset:
 ```python
 # vibropredict/data/enzyextract.py (NEW)
 
+
 class EnzyExtractDB:
     """
     Filter and integrate EnzyExtractDB entries
-    
+
     Quality gates:
         - UniProt ID validity
         - SMILES canonicalization
@@ -165,16 +167,17 @@ class EnzyExtractDB:
 ```python
 # vibropredict/structures/sifts_mapper.py (NEW)
 
+
 class SIFTSMapper:
     """
     Map UniProt entries to optimal PDB structures
-    
+
     Selection criteria:
         1. Sequence coverage (catalytic domain)
         2. Resolution (<2.5 Å preferred)
         3. Structure state (Apo or ligand-free)
         4. Completeness (minimal gaps)
-    
+
     Methods:
         - score_pdb_candidates()
         - select_best_structure()
@@ -191,16 +194,17 @@ class SIFTSMapper:
 ```python
 # vibropredict/structures/esmfold_runner.py (NEW)
 
+
 class ESMFoldPredictor:
     """
     High-throughput structure prediction for sequences lacking PDB
-    
+
     Features:
         - Batch inference (parallel across GPUs)
         - pLDDT quality control (>70 per-residue)
         - Global confidence filtering (<60 → exclusion)
         - Integration with GNM quality gates
-    
+
     Methods:
         - predict_structure()
         - validate_plddt()
@@ -215,16 +219,17 @@ class ESMFoldPredictor:
 ```python
 # vibropredict/spectra/vdos_engine.py (MODIFIED from QDD)
 
+
 class VibroEnzymePipeline:
     """
     Enhanced version of spectral_generation.py for enzymes
-    
+
     Additions:
         - Force field-aware GNM (distance-dependent spring constants)
         - Multi-mode spectrum (all 3N-6 modes, not just slow)
         - Thermodynamic features extraction
         - Spectral quality metrics (entropy convergence)
-    
+
     Reuses from QDD:
         - SpectralGenerator.generate_dos() with tuned broadening
         - Normalization utilities from utils.py
@@ -236,15 +241,16 @@ class VibroEnzymePipeline:
 ```python
 # Add to SpectralGenerator class:
 
+
 class SpectralGenerator:
     def compute_enzyme_spectra(self, gnm_object, n_residues):
         """
         Generate VDOS from GNM for enzymes specifically
-        
+
         Args:
             gnm_object: ProDy GNM instance
             n_residues: Number of residues (for 3N-6 calculation)
-        
+
         Returns:
             vdos_vector: (1024,) numpy array
             auxiliary_features: dict with entropy, B-factors, etc.
@@ -252,20 +258,20 @@ class SpectralGenerator:
         # Calculate all eigenvalues
         eigenvalues = gnm_object.getEigens()[1]
         frequencies = np.sqrt(eigenvalues)
-        
+
         # Gaussian broadening (ProDy-standard σ=1.0)
         vdos = self.generate_dos(frequencies, broadening=1.0)
-        
+
         # Bin to 1024 points
         vdos_binned = np.histogram(vdos, bins=1024)[0]
-        
+
         # Extract auxiliary features
         aux = {
-            'vibrational_entropy': gnm_object.calcEntropy(),
-            'b_factors': gnm_object.getDebyeWallerFactors(),
-            'collectivity': self._compute_collectivity(eigenvalues)
+            "vibrational_entropy": gnm_object.calcEntropy(),
+            "b_factors": gnm_object.getDebyeWallerFactors(),
+            "collectivity": self._compute_collectivity(eigenvalues),
         }
-        
+
         return vdos_binned, aux
 ```
 
@@ -279,28 +285,29 @@ class SpectralGenerator:
 import torch
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
+
 class ProtT5Encoder:
     """
     Per-residue attention-weighted sequence embeddings
-    
+
     Uses: ProtT5-XL-UniRef50 (huggingface)
-    
+
     Architecture:
         - Tokenize sequence → T5 → Last hidden layer (1024-dim per residue)
         - Per-residue attention: learnable weights
         - Output: Global sequence embedding (1024-dim)
-    
+
     Methods:
         - encode_sequence()
         - compute_attention_weights()
         - extract_active_site_focus()
     """
-    
+
     def __init__(self, model_name="Rostlab/prot_t5_xl_uniref50"):
         self.tokenizer = T5Tokenizer.from_pretrained(model_name)
         self.model = T5ForConditionalGeneration.from_pretrained(model_name)
         self.attention_layer = torch.nn.Linear(1024, 1)  # Learnable
-    
+
     def forward(self, sequence):
         """
         sequence: str, e.g., "MKTIIALSYIF..."
@@ -308,10 +315,10 @@ class ProtT5Encoder:
         """
         tokens = self.tokenizer(sequence, return_tensors="pt")
         embeddings = self.model.encoder(**tokens).last_hidden_state  # (L, 1024)
-        
+
         # Compute per-residue attention
         weights = torch.softmax(self.attention_layer(embeddings), dim=0)
-        
+
         # Weighted sum
         output = torch.sum(embeddings * weights, dim=0)
         return output
@@ -327,36 +334,37 @@ from rdkit.Chem import AllChem
 import torch
 from transformers import AutoTokenizer, AutoModel
 
+
 class ChemicalEncoder:
     """
     Dual-branch chemical encoding:
         1. SMILES Transformer (semantic understanding)
         2. Differential Reaction Fingerprint (explicit bond changes)
-    
+
     Combines:
         - Semantic: SMILES → BERT-like embedding
         - Explicit: Substrate SMILES ⊕ Product SMILES → DRFP
-    
+
     Output: Concatenated (512 + 512 = 1024) vector
     """
-    
+
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("seyonec/SMILES_BERT_PubChem")
         self.model = AutoModel.from_pretrained("seyonec/SMILES_BERT_PubChem")
-    
+
     def compute_drfp(self, substrate_smiles, product_smiles):
         """
         DRFP = Morgan(Product) XOR Morgan(Substrate)
         """
         substrate = Chem.MolFromSmiles(substrate_smiles)
         product = Chem.MolFromSmiles(product_smiles)
-        
+
         fp_sub = AllChem.GetMorganFingerprintAsBitVect(substrate, 2, nBits=512)
         fp_prod = AllChem.GetMorganFingerprintAsBitVect(product, 2, nBits=512)
-        
+
         drfp = np.array(fp_sub) ^ np.array(fp_prod)  # XOR
         return drfp
-    
+
     def forward(self, substrate_smiles, product_smiles=None):
         """
         Returns: (1024,) embedding = [Transformer, DRFP]
@@ -364,13 +372,13 @@ class ChemicalEncoder:
         # SMILES Transformer embedding
         tokens = self.tokenizer(substrate_smiles, return_tensors="pt")
         embedding = self.model(**tokens).last_hidden_state.mean(dim=1)[0]  # 512-dim
-        
+
         # DRFP (if product available)
         if product_smiles:
             drfp = self.compute_drfp(substrate_smiles, product_smiles)
         else:
             drfp = np.zeros(512)
-        
+
         combined = torch.cat([embedding, torch.from_numpy(drfp).float()])
         return combined
 ```
@@ -386,39 +394,40 @@ from .sequence_encoder import ProtT5Encoder
 from .spectral_encoder import SpectralCNN  # From QDD
 from .chemical_encoder import ChemicalEncoder
 
+
 class VibroPredictHybrid(nn.Module):
     """
     Three-branch encoder with attention fusion
-    
+
     Branches:
         1. Sequence: ProtT5 → (1024,)
         2. Spectral: 1D-CNN on VDOS → (128,)
         3. Chemical: SMILES + DRFP → (1024,)
-    
+
     Fusion:
         - Attention gating for adaptive weighting
         - Handles missing modalities (MM-Drop training)
-    
+
     Head:
         - Regression MLP → log₁₀(k_cat) scalar
     """
-    
+
     def __init__(self):
         super().__init__()
-        
+
         # Encoders
         self.seq_encoder = ProtT5Encoder()
         self.spec_encoder = SpectralCNN(latent_dim=128)
         self.chem_encoder = ChemicalEncoder()
-        
+
         # Fusion
         self.fusion_gate = nn.Sequential(
             nn.Linear(1024 + 128 + 1024, 512),
             nn.ReLU(),
             nn.Linear(512, 3),
-            nn.Softmax(dim=-1)  # Gate weights: α_seq, α_spec, α_chem
+            nn.Softmax(dim=-1),  # Gate weights: α_seq, α_spec, α_chem
         )
-        
+
         # Regression head
         self.regressor = nn.Sequential(
             nn.Linear(1024 + 128 + 1024, 256),
@@ -426,11 +435,12 @@ class VibroPredictHybrid(nn.Module):
             nn.Dropout(0.2),
             nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(128, 1)
+            nn.Linear(128, 1),
         )
-    
-    def forward(self, sequence, vdos, substrate_smiles, 
-                product_smiles=None, drop_spectral=False):
+
+    def forward(
+        self, sequence, vdos, substrate_smiles, product_smiles=None, drop_spectral=False
+    ):
         """
         drop_spectral: For MM-Drop training (zero out spectral branch)
         """
@@ -438,25 +448,27 @@ class VibroPredictHybrid(nn.Module):
         h_seq = self.seq_encoder(sequence)  # (1024,)
         h_spec = self.spec_encoder(vdos.unsqueeze(0).unsqueeze(0))  # (128,)
         h_chem = self.chem_encoder(substrate_smiles, product_smiles)  # (1024,)
-        
+
         # Handle missing modality
         if drop_spectral:
             h_spec = torch.zeros_like(h_spec)
-        
+
         # Concatenate
         h_concat = torch.cat([h_seq, h_spec, h_chem])  # (2176,)
-        
+
         # Attention fusion
         gates = self.fusion_gate(h_concat)  # (3,): α_seq, α_spec, α_chem
-        
+
         # Weighted fusion (for auxiliary interpretation)
-        h_fused = (gates[0] * h_seq + 
-                   gates[1] * h_spec[:min(len(h_spec), len(h_seq))] +
-                   gates[2] * h_chem)
-        
+        h_fused = (
+            gates[0] * h_seq
+            + gates[1] * h_spec[: min(len(h_spec), len(h_seq))]
+            + gates[2] * h_chem
+        )
+
         # Regression
         logkcat = self.regressor(h_concat)
-        
+
         return logkcat.squeeze(), gates  # (scalar), attention weights
 ```
 
@@ -467,25 +479,26 @@ class VibroPredictHybrid(nn.Module):
 ```python
 # Addition to src/models/losses.py
 
+
 class MutantRankingLoss(nn.Module):
     """
     Extension for enzyme engineering: enforce correct ranking of mutants
-    
+
     If k_cat(M1) > k_cat(M2), enforce ŷ(M1) > ŷ(M2)
-    
+
     Loss = MSE + λ * RankingLoss
     """
-    
+
     def forward(self, pred_pairs, target_pairs, lambda_rank=0.1):
         """
         pred_pairs: [(pred_m1, pred_m2), ...] from batched mutant pairs
         target_pairs: [(true_m1, true_m2), ...] ground truth ranking
         """
         mse_loss = nn.MSELoss()(pred_pairs.flatten(), target_pairs.flatten())
-        
+
         # Ranking loss: penalize if ŷ(M1) < ŷ(M2) when y(M1) > y(M2)
         rank_loss = torch.sum(torch.relu(1 - (pred_pairs[:, 0] - pred_pairs[:, 1])))
-        
+
         total = mse_loss + lambda_rank * rank_loss
         return total
 ```
@@ -495,43 +508,44 @@ class MutantRankingLoss(nn.Module):
 ```python
 # Addition to src/training.py
 
+
 class TrainerWithMMDrop(Trainer):
     """
     Extension of Trainer class with Missing Modality dropout
-    
+
     During training: Randomly drop spectral branch with prob p_drop
     Forces model to learn sequence+chemistry pathway independently
     Enables robustness to missing structures at inference
     """
-    
+
     def train_epoch(self, train_loader, loss_fn, p_drop=0.25):
         """
         p_drop: Probability of dropping spectral branch per batch
         """
         total_loss = 0.0
-        
+
         for batch in train_loader:
             # Randomly drop spectral modality
             drop_spectral = np.random.rand() < p_drop
-            
+
             # Forward pass
             logkcat, gates = self.model(
-                batch['sequence'],
-                batch['vdos'],
-                batch['substrate_smiles'],
-                drop_spectral=drop_spectral
+                batch["sequence"],
+                batch["vdos"],
+                batch["substrate_smiles"],
+                drop_spectral=drop_spectral,
             )
-            
+
             # Loss computation
-            loss = loss_fn(logkcat, batch['log_kcat'])
-            
+            loss = loss_fn(logkcat, batch["log_kcat"])
+
             # Backward pass
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            
+
             total_loss += loss.item()
-        
+
         return total_loss / len(train_loader)
 ```
 
@@ -546,17 +560,18 @@ class TrainerWithMMDrop(Trainer):
 
 from src.datasets import ProteinStructureDataset
 
+
 class EnzymeKineticsDataset(ProteinStructureDataset):
     """
     Specialized dataset for enzyme kinetics with multimodal inputs
-    
+
     Extends QDD's ProteinStructureDataset with:
         - KinHub-27k / EnzyExtractDB entries
         - Kinetic parameters (k_cat, K_m)
         - Substrate SMILES and products
         - Mutation information (WT vs mutant)
         - Optional structures (PDB or ESMFold)
-    
+
     Returns:
         {
             'sequence': str,           # Protein sequence
@@ -569,24 +584,24 @@ class EnzymeKineticsDataset(ProteinStructureDataset):
             'organism': str,           # Source organism
         }
     """
-    
+
     def __init__(self, kinetics_csv, structures_dir, vdos_dir):
         super().__init__(csv_file=kinetics_csv, spectra_dir=vdos_dir)
         self.structures_dir = structures_dir
         self.kinetics_df = pd.read_csv(kinetics_csv)
-    
+
     def __getitem__(self, idx):
         """
         Returns complete multimodal sample
         """
         row = self.kinetics_df.iloc[idx]
-        
+
         # Load modalities
-        sequence = row['protein_sequence']
-        log_kcat = np.log10(float(row['k_cat']))
-        substrate_smiles = row['substrate_smiles']
-        product_smiles = row.get('product_smiles', None)
-        
+        sequence = row["protein_sequence"]
+        log_kcat = np.log10(float(row["k_cat"]))
+        substrate_smiles = row["substrate_smiles"]
+        product_smiles = row.get("product_smiles", None)
+
         # Load/compute spectrum
         vdos_file = f"{self.structures_dir}/{row['uniprot_id']}_vdos.npy"
         if os.path.exists(vdos_file):
@@ -594,16 +609,16 @@ class EnzymeKineticsDataset(ProteinStructureDataset):
         else:
             # Recompute if needed
             vdos = self._compute_vdos(row)
-        
+
         return {
-            'sequence': sequence,
-            'uniprot_id': row['uniprot_id'],
-            'log_kcat': log_kcat,
-            'substrate_smiles': substrate_smiles,
-            'product_smiles': product_smiles,
-            'vdos': vdos,
-            'mutation': row.get('mutation', 'WT'),
-            'organism': row.get('organism', 'Unknown'),
+            "sequence": sequence,
+            "uniprot_id": row["uniprot_id"],
+            "log_kcat": log_kcat,
+            "substrate_smiles": substrate_smiles,
+            "product_smiles": product_smiles,
+            "vdos": vdos,
+            "mutation": row.get("mutation", "WT"),
+            "organism": row.get("organism", "Unknown"),
         }
 ```
 

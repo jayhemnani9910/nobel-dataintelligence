@@ -81,7 +81,7 @@ for case in CASES:
     results[name] = {
         "Tm_measured_C": case["Tm_measured_C"],
         "note": case["note"],
-        "n_modes_used": int(len(positive)),
+        "n_modes_used": len(positive),
         "min_eigenvalue": float(positive.min()),
         "mean_eigenvalue": float(positive.mean()),
         "vibrational_entropy_J_mol_K": float(entropy),
@@ -90,10 +90,14 @@ for case in CASES:
         "vdos_low_freq_fraction_under_100cm1": low_freq_fraction,
     }
     print(f"  modes used:              {results[name]['n_modes_used']}")
-    print(f"  vib. entropy (J/mol/K):  {results[name]['vibrational_entropy_J_mol_K']:.3f}")
+    print(
+        f"  vib. entropy (J/mol/K):  {results[name]['vibrational_entropy_J_mol_K']:.3f}"
+    )
     print(f"  VDOS peak (cm^-1):       {results[name]['vdos_peak_freq_cm1']:.2f}")
     print(f"  VDOS mean freq (cm^-1):  {results[name]['vdos_mean_freq_cm1']:.2f}")
-    print(f"  <100cm^-1 fraction:      {results[name]['vdos_low_freq_fraction_under_100cm1']:.3f}")
+    print(
+        f"  <100cm^-1 fraction:      {results[name]['vdos_low_freq_fraction_under_100cm1']:.3f}"
+    )
 
 # --- Save summary JSON ---
 with open(OUTPUT_DIR / "petase_vs_lcc_summary.json", "w") as f:
@@ -114,7 +118,9 @@ for case in CASES:
     )
 ax.set_xlabel("Frequency (cm⁻¹)")
 ax.set_ylabel("Normalized VDOS")
-ax.set_title("Vibrational density of states — fragile vs thermostable PET-degrading enzyme")
+ax.set_title(
+    "Vibrational density of states — fragile vs thermostable PET-degrading enzyme"
+)
 ax.legend(loc="upper right")
 ax.grid(True, alpha=0.3)
 ax.set_xlim(0, 500)
@@ -127,10 +133,13 @@ ft = results["IsPETase_wildtype"]
 lc = results["LCC-ICCG_engineered"]
 entropy_delta = lc["vibrational_entropy_J_mol_K"] - ft["vibrational_entropy_J_mol_K"]
 lowfreq_delta = (
-    lc["vdos_low_freq_fraction_under_100cm1"] - ft["vdos_low_freq_fraction_under_100cm1"]
+    lc["vdos_low_freq_fraction_under_100cm1"]
+    - ft["vdos_low_freq_fraction_under_100cm1"]
 )
 print("\n=== VERDICT ===")
-print(f"LCC is {lc['Tm_measured_C'] - ft['Tm_measured_C']:+.1f}°C more thermostable than IsPETase.")
+print(
+    f"LCC is {lc['Tm_measured_C'] - ft['Tm_measured_C']:+.1f}°C more thermostable than IsPETase."
+)
 print(f"Δ vibrational entropy (LCC - WT): {entropy_delta:+.3f} J/mol/K")
 print(f"Δ low-frequency VDOS fraction:   {lowfreq_delta:+.4f}")
 print("\nInterpretation:")

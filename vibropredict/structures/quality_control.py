@@ -79,7 +79,9 @@ def filter_by_quality(
     return passed
 
 
-def flag_disordered_regions(plddt: np.ndarray, threshold: float = 50.0) -> list[tuple[int, int]]:
+def flag_disordered_regions(
+    plddt: np.ndarray, threshold: float = 50.0
+) -> list[tuple[int, int]]:
     """
     Identify contiguous regions with low pLDDT (likely disordered).
 
@@ -112,5 +114,7 @@ def flag_disordered_regions(plddt: np.ndarray, threshold: float = 50.0) -> list[
         regions.append((start, len(plddt) - 1))
 
     if regions:
-        logger.info(f"Found {len(regions)} disordered region(s) below pLDDT {threshold}")
+        logger.info(
+            f"Found {len(regions)} disordered region(s) below pLDDT {threshold}"
+        )
     return regions

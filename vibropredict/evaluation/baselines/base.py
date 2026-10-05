@@ -50,7 +50,7 @@ class BaselineModel(ABC):
         """
         ...
 
-    def setup(self) -> None:  # noqa: B027
+    def setup(self) -> None:
         """Optional setup hook for model initialization.
 
         Override this to download weights, initialize heavy dependencies,
@@ -74,7 +74,10 @@ class BaselineModel(ABC):
         Returns:
             List of (log_kcat, metadata) tuples.
         """
-        return [self.predict(seq, smi) for seq, smi in zip(sequences, smiles_list, strict=True)]
+        return [
+            self.predict(seq, smi)
+            for seq, smi in zip(sequences, smiles_list, strict=True)
+        ]
 
     @property
     def name(self) -> str:
@@ -98,7 +101,9 @@ def register_baseline(name: str):
 
     def decorator(cls):
         if not issubclass(cls, BaselineModel):
-            raise TypeError(f"{cls.__name__} must subclass BaselineModel to be registered.")
+            raise TypeError(
+                f"{cls.__name__} must subclass BaselineModel to be registered."
+            )
         if name in _BASELINE_REGISTRY:
             logger.warning(
                 f"Baseline '{name}' is already registered; overwriting with {cls.__name__}."
