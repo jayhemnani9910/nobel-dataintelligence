@@ -59,7 +59,7 @@ def _get_env_dump() -> dict:
     env = {
         "python_version": sys.version,
         "platform": platform.platform(),
-        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     try:
         result = subprocess.run(
