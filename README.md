@@ -8,6 +8,8 @@ Research code for predicting protein stability and enzyme kinetics from structur
 git clone https://github.com/jayhemnani9910/nobel-dataintelligence.git && cd nobel-dataintelligence && pip install -r requirements.txt
 ```
 
+I tested this line in a clean `python:3.12-slim` container. On Python 3.10 and 3.11 it also installs `graphein`, which the code does not use, and pip may then build an old scikit-learn from source, which needs a C compiler.
+
 [![Tests](https://github.com/jayhemnani9910/nobel-dataintelligence/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/jayhemnani9910/nobel-dataintelligence/actions/workflows/tests.yml)
 
 Project page: https://jayhemnani9910.github.io/nobel-dataintelligence/
@@ -44,7 +46,7 @@ Run the tests:
 python -m pytest tests/ vibropredict/tests/
 ```
 
-234 pass and 2 skip on CPU. The CLI and examples import `src`, so run them from the repo root.
+234 pass and 2 skip on CPU with Python 3.11. The CLI and examples import `src`, so run them from the repo root.
 
 ## Status: the physics signal is unproven
 

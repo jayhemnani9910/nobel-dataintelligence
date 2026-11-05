@@ -15,6 +15,9 @@ There are no tagged releases yet.
 - CI also runs `vibropredict/tests/`.
 - `.gitignore` covers every `.env*` file except `.env.example`.
 
+### Fixed
+- `scripts/run_benchmarks.py` crashed on Python 3.10 (`datetime.UTC`).
+
 ## 2026-10-06
 
 ### Fixed
