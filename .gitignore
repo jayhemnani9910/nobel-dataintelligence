@@ -44,8 +44,8 @@ env/
 ENV/
 
 # Environment variables
-.env
-.env.local
+.env*
+!.env.example
 .kaggle/
 
 # IDE/Editor

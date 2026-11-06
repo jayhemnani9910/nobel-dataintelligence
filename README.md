@@ -1,71 +1,101 @@
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Explore-22d3ee?style=for-the-badge&logo=github)](https://jayhemnani9910.github.io/nobel-dataintelligence/)
-[![Tests](https://img.shields.io/github/actions/workflow/status/jayhemnani9910/nobel-dataintelligence/tests.yml?style=for-the-badge&label=Tests&logo=githubactions)](https://github.com/jayhemnani9910/nobel-dataintelligence/actions)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
-[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-
 # Quantum Data Decoder
 
-**Predicting protein stability and enzyme kinetics through the physics of molecular vibrations.**
+![Walkthrough of real output: NMA on two PETase structures, the VDOS plot, the 27-pair validation, the test run](docs/demo.gif)
 
-Traditional ML treats proteins as static sequences or frozen structures. QDD treats them as what they actually are: **vibrating machines** whose dynamics encode function. We extract the Vibrational Density of States (VDOS) from Normal Mode Analysis and feed it — alongside sequence and chemical features — into a tri-modal deep learning architecture.
+Research code for predicting protein stability and enzyme kinetics from structure vibrations.
+
+```bash
+git clone https://github.com/jayhemnani9910/nobel-dataintelligence.git && cd nobel-dataintelligence && pip install -r requirements.txt
+```
+
+I tested this line in a clean `python:3.12-slim` container. On Python 3.10 and 3.11 it also installs `graphein`, which the code does not use, and pip may then build an old scikit-learn from source, which needs a C compiler.
+
+[![Tests](https://github.com/jayhemnani9910/nobel-dataintelligence/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/jayhemnani9910/nobel-dataintelligence/actions/workflows/tests.yml)
+
+Project page: https://jayhemnani9910.github.io/nobel-dataintelligence/
+
+## Try it
+
+This compares wild-type PETase (6EQE) with the engineered, heat-stable LCC-ICCG (6THS). It runs normal mode analysis on both and needs no GPU or trained model. It took under 2 seconds on my laptop CPU.
+
+```bash
+mkdir -p data/pdb
+curl -o data/pdb/6eqe.pdb https://files.rcsb.org/download/6EQE.pdb
+curl -o data/pdb/6ths.pdb https://files.rcsb.org/download/6THS.pdb
+python scripts/real_world_petase.py
+```
 
 ```
-Protein Structure ──► NMA ──► VDOS Spectrum ──► SpectralCNN ──┐
-                                                               ├──► TriModalFusion ──► Prediction
-Amino Acid Sequence ──► ProtT5 Encoder ───────────────────────┤
-                                                               │
+=== IsPETase_wildtype (Tm=45.0°C) ===
+  vib. entropy (J/mol/K):  661.010
+  VDOS mean freq (cm^-1):  287.81
+
+=== LCC-ICCG_engineered (Tm=94.0°C) ===
+  vib. entropy (J/mol/K):  605.751
+  VDOS mean freq (cm^-1):  302.06
+
+=== VERDICT ===
+Δ vibrational entropy (LCC - WT): -55.259 J/mol/K
+```
+
+The Tm values are literature numbers written into the script, not predictions. It writes a summary JSON, both spectra and `vdos_comparison.png` to `benchmarks/real_world/`.
+
+Run the tests:
+
+```bash
+python -m pytest tests/ vibropredict/tests/
+```
+
+234 pass and 2 skip on CPU with Python 3.11. The CLI and examples import `src`, so run them from the repo root.
+
+## Status: the physics signal is unproven
+
+The idea is that how a protein vibrates says something about how stable it is. I tested that before training anything big. On 27 verified thermophile/mesophile enzyme pairs, every vibrational feature landed at chance:
+
+| Feature (hypothesis) | Pairs matching | Wilcoxon p |
+|---|---|---|
+| Entropy per residue, thermophile lower | 12 / 27 | 0.83 |
+| Softest mode, thermophile stiffer | 13 / 27 | 0.47 |
+| Mean MSF, thermophile more rigid | 14 / 27 | 0.46 |
+| Mean VDOS frequency, thermophile higher | 13 / 27 | 0.39 |
+| Contact density, thermophile denser | 13 / 27 | 0.81 |
+
+Details are in [`docs/PHYSICS_SIGNAL_VALIDATION.md`](docs/PHYSICS_SIGNAL_VALIDATION.md). The PETase pair above goes the expected way, but one pair proves nothing.
+
+The full tri-modal model has not been benchmarked. `benchmarks/benchmarks.json` is a dry run with `results: []`. No trained checkpoint is in the repo, so `predict-stability` and `predict-kcat` stop with a "Checkpoint not found" error until you train one. [`docs/BENCHMARK_RUNBOOK.md`](docs/BENCHMARK_RUNBOOK.md) has the steps for a real run, and [`AUDIT.md`](AUDIT.md) lists the bugs found and fixed so far.
+
+## How it works
+
+```
+Protein structure ──► NMA ──► VDOS spectrum ──► SpectralCNN ──┐
+                                                              ├──► TriModalFusion ──► log10 k_cat
+Amino acid sequence ──► ProtT5 encoder ──────────────────────┤
+                                                              │
 Substrate SMILES ──► ChemBERTa + DRFP ───────────────────────┘
 ```
 
-## Why This Matters
-
-| What we do differently | Why it works |
-|------------------------|--------------|
-| **VDOS as input feature** | Encodes conformational dynamics invisible to static models |
-| **3-branch fusion** | Sequence, spectral, and chemical modalities complement each other |
-| **MM-Drop training** | Randomly drops branches during training for robustness to missing data |
-| **Physics-informed** | Vibrational entropy directly relates to thermodynamic stability |
-
-## Benchmarks
-
-Published baselines for enzyme-kcat prediction (literature values):
-
-| Model | Year | R² | Key Modalities |
-|-------|------|----|----------------|
-| TurNuP | 2022 | 0.62 | Sequence + Fingerprints |
-| DLKcat | 2021 | 0.64 | Sequence + Distance Graph |
-| UniKP | 2023 | 0.68 | ProtT5 + SMILES |
-| MPEK | 2023 | 0.70 | ESM-2 + SMILES |
-| CatPred | 2025 | 0.79 | Sequence + SMILES |
-
-> **VibroPredict is not yet benchmarked.** `benchmarks/benchmarks.json` is a
-> dry-run (`results: []`); no VibroPredict R² has been produced on a public
-> split. A controlled test of the physics branch (thermophile/mesophile homolog
-> pairs) came back **negative** — see [`docs/PHYSICS_SIGNAL_VALIDATION.md`](docs/PHYSICS_SIGNAL_VALIDATION.md)
-> and the full [`AUDIT.md`](AUDIT.md). Treat the physics-informed advantage as an
-> open research question, not a demonstrated result, until a real benchmark run
-> with the (now-fixed) ablation is in.
-
-## Quick Start
-
-```bash
-git clone https://github.com/jayhemnani9910/nobel-dataintelligence.git
-cd nobel-dataintelligence
-conda env create -f environment.yml && conda activate quantum_decoder
-pip install -r requirements.txt
-pip install -e .                                # makes `src`/`qdd` importable for the CLI
-python -m pytest tests/ vibropredict/tests/ -v  # 180+ tests
-```
-
-> [!NOTE]
-> The CLI examples below use `python -m src.cli`, which requires the editable
-> install above (`pip install -e .`) or `PYTHONPATH=.`. After `pip install -e .`
-> the console script `qdd …` also works (e.g. `qdd predict-kcat …`). On some
-> sandboxed setups PyTorch needs `KMP_AFFINITY=disabled` in the environment.
+1. ProDy builds an anisotropic network model (ANM) from the C-alpha atoms, 15 Å cutoff, and computes the lowest normal modes.
+2. The mode frequencies are broadened with Lorentzians into a vibrational density of states (VDOS), plus vibrational entropy at 298.15 K.
+3. For enzyme kinetics (`vibropredict/`), a 1D CNN encodes the VDOS. ProtT5 encodes the sequence, and ChemBERTa plus a reaction fingerprint encode the substrate. The code calls it DRFP, but it is built from RDKit Morgan fingerprints, not the DRFP package. A gated fusion layer combines the three and returns the gate weights.
+4. Training randomly drops the spectral branch (`p_drop=0.25` by default), so the model still works when no structure is available.
+5. For stability and function (`src/`), a GATv2 graph network over the structure is fused with the spectral CNN, with heads for Novozymes (Tm) and CAFA 5 (GO terms).
 
 ## Usage
 
-### Predict enzyme kinetics
+### Normal mode analysis on any PDB file
+
+```python
+from src.nma_analysis import ANMAnalyzer
+
+anm = ANMAnalyzer("structure.pdb", cutoff=15.0)
+frequencies, modes = anm.compute_modes(k=100)
+vdos = anm.compute_vdos(k=100, broadening=5.0)
+entropy = anm.compute_vibrational_entropy(k=100, temperature=298.15)
+```
+
+### Enzyme kinetics model
+
+The first call downloads ProtT5 (`Rostlab/prot_t5_xl_uniref50`) and ChemBERTa from Hugging Face. ProtT5 is several GB.
 
 ```python
 from vibropredict.models import VibroPredictHybrid
@@ -77,12 +107,10 @@ logkcat, gates = model(
     substrate_smiles=["CC(=O)O"],
 )
 print(f"k_cat = {10 ** logkcat.item():.1f} s⁻¹")
-print(
-    f"Attention gates: seq={gates[0, 0]:.2f} spec={gates[0, 1]:.2f} chem={gates[0, 2]:.2f}"
-)
+print(f"gates: seq={gates[0, 0]:.2f} spec={gates[0, 1]:.2f} chem={gates[0, 2]:.2f}")
 ```
 
-### Train with MM-Drop
+### Training with spectral dropout
 
 ```python
 from vibropredict.training import TrainerWithMMDrop, MutantRankingLoss
@@ -98,103 +126,52 @@ trainer.fit(
 )
 ```
 
-### Run NMA on any protein
-
-```python
-from src.nma_analysis import ANMAnalyzer
-
-anm = ANMAnalyzer("structure.pdb", cutoff=15.0)
-frequencies, modes = anm.compute_modes(k=100)
-vdos = anm.compute_vdos(k=100, broadening=5.0)
-entropy = anm.compute_vibrational_entropy(k=100, temperature=298.15)
-```
-
-### Inference (with trained checkpoint)
-
-```bash
-# Predict enzyme stability
-python -m src.cli predict-stability --sequence "ACDEFGHIKLMNPQRSTVWY" --pH 7.0
-
-# Predict catalytic turnover
-python -m src.cli predict-kcat --sequence "MKTIIALSYIF..." --smiles "CC(=O)O"
-```
-
-### Train on Google Colab
-
-Open the ready-to-run notebooks on Colab Pro (A100):
-
-| Notebook | What it trains | Time |
-|----------|---------------|------|
-| [`colab/train_novozymes.ipynb`](colab/train_novozymes.ipynb) | VibroStructuralModel on Novozymes (4k mutations) | ~15 min |
-| [`colab/train_vibropredict.ipynb`](colab/train_vibropredict.ipynb) | VibroPredictHybrid with ProtT5 + ChemBERTa | ~30 min |
-
-### CLI pipelines
+### CLI
 
 ```bash
 python -m src.cli novozymes --data-dir ./data/kaggle --epochs 5
 python -m src.cli cafa5 --data-dir ./data/cafa5 --top-k-terms 25
+python -m src.cli predict-stability --sequence "ACDEFGHIKLMNPQRSTVWY" --pH 7.0 --checkpoint path/to.pt
+python -m src.cli predict-kcat --sequence "MKTIIALSYIF..." --smiles "CC(=O)O" --checkpoint path/to.pt
 ```
 
-## Architecture
+The Novozymes and CAFA 5 data come from Kaggle and need Kaggle API credentials.
 
-### Phase 1-2: Quantum Data Decoder (Core)
+### Colab notebooks
 
-| Module | Purpose |
-|--------|---------|
-| `src/nma_analysis.py` | ANM/GNM normal mode analysis |
-| `src/spectral_generation.py` | VDOS synthesis with Lorentzian broadening |
-| `src/models/gnn.py` | GATv2 graph encoder for protein structures |
-| `src/models/cnn.py` | 1D CNN spectral encoder |
-| `src/models/multimodal.py` | Bilinear/attention fusion + task heads |
-| `src/models/losses.py` | Ranking, focal, contrastive, correlation losses |
-| `src/training.py` | Trainer with early stopping and checkpointing |
-| `src/datasets.py` | Novozymes + CAFA5 dataset loaders |
+- [`colab/train_novozymes.ipynb`](colab/train_novozymes.ipynb) downloads the Novozymes data from Kaggle and trains `VibroStructuralModel`.
+- [`colab/train_vibropredict.ipynb`](colab/train_vibropredict.ipynb) trains `VibroPredictHybrid` on a synthetic 1000-sample dataset, because KinHub-27k needs a manual download. It shows the pipeline runs, not that the model works.
 
-### Phase 3: VibroPredict (Enzyme Kinetics)
+## Layout
 
-| Module | Purpose |
-|--------|---------|
-| `vibropredict/models/` | ProtT5 encoder, ChemBERTa+DRFP encoder, TriModalFusion, hybrid model |
-| `vibropredict/training/` | TrainerWithMMDrop, MutantRankingLoss, metrics |
-| `vibropredict/data/` | KinHub-27k loader, EnzyExtractDB filter, standardization |
-| `vibropredict/structures/` | SIFTS mapper, ESMFold predictor, pLDDT quality control |
+| Path | What is in it |
+|------|---------------|
+| `src/nma_analysis.py` | ANM/GNM normal mode analysis, VDOS, vibrational entropy |
+| `src/spectral_generation.py` | VDOS with Lorentzian broadening |
+| `src/models/` | GATv2 graph encoder, 1D spectral CNN, fusion, task heads, losses |
+| `src/training.py`, `src/datasets.py` | Trainer with early stopping, Novozymes and CAFA 5 loaders |
+| `src/cli.py`, `src/inference.py` | CLI pipelines and checkpoint inference |
+| `vibropredict/models/` | ProtT5 encoder, ChemBERTa + DRFP encoder, TriModalFusion, hybrid model |
+| `vibropredict/training/` | `TrainerWithMMDrop`, `MutantRankingLoss`, metrics |
+| `vibropredict/data/` | KinHub-27k loader, EnzyExtractDB filter, unit standardization, splits |
+| `vibropredict/structures/` | SIFTS mapper, ESMFold runner, pLDDT quality control |
 | `vibropredict/spectra/` | GNM calculator, batch VDOS engine |
-| `vibropredict/evaluation/` | Ablation runner, SOTA comparison, visualization |
+| `vibropredict/evaluation/` | Ablation runner, baselines, comparison tables, plots |
+| `scripts/` | PETase demo, benchmark runner, KinHub vs RealKcat overlap check |
+| `notebooks/`, `vibropredict/notebooks/` | 8 notebooks, from NMA on ubiquitin to the ablation study |
+| `demo/` | The project page |
 
-## Project Structure
+## Published k_cat baselines
 
-```
-├── src/                    # QDD core (Phase 1-2)
-│   ├── models/             # GNN, CNN, fusion, losses
-│   ├── training.py         # Trainer + metrics
-│   ├── datasets.py         # Dataset classes
-│   └── nma_analysis.py     # Normal mode analysis
-├── vibropredict/           # VibroPredict (Phase 3)
-│   ├── models/             # ProtT5, ChemBERTa, fusion, hybrid
-│   ├── training/           # MM-Drop trainer, ranking loss
-│   ├── data/               # KinHub, EnzyExtract, dataset
-│   ├── structures/         # SIFTS, ESMFold, QC
-│   ├── spectra/            # GNM, VDOS engine
-│   └── evaluation/         # Ablation, benchmarks, plots
-├── notebooks/              # 4 QDD notebooks
-├── vibropredict/notebooks/ # 4 VibroPredict notebooks
-├── tests/                  # 180+ unit tests
-├── demo/                   # Interactive GitHub Pages demo
-└── docs/                   # Phase 2 report, future plans
-```
+These are the literature R² values the comparison code (`vibropredict/evaluation/sota_comparison.py`) puts VibroPredict next to. They are not my results.
 
-## Notebooks
-
-| # | Notebook | Topic |
-|---|----------|-------|
-| 01 | `notebooks/01_quickstart.ipynb` | Full pipeline overview |
-| 02 | `notebooks/02_nma_prototype.ipynb` | NMA on Ubiquitin with VDOS plots |
-| 03 | `notebooks/03_novozymes_execution.ipynb` | Enzyme stability prediction |
-| 04 | `notebooks/04_cafa5_execution.ipynb` | GO term function prediction |
-| 05 | `vibropredict/notebooks/05_vibropredict_intro.ipynb` | Tri-modal architecture demo |
-| 06 | `vibropredict/notebooks/06_database_construction.ipynb` | VP-DB construction |
-| 07 | `vibropredict/notebooks/07_model_training.ipynb` | Training with MM-Drop |
-| 08 | `vibropredict/notebooks/08_ablation_study.ipynb` | Ablation + SOTA comparison |
+| Model | Year | R² |
+|-------|------|----|
+| TurNuP | 2022 | 0.62 |
+| DLKcat | 2021 | 0.64 |
+| UniKP | 2023 | 0.68 |
+| MPEK | 2023 | 0.70 |
+| CatPred | 2025 | 0.79 |
 
 ## References
 
@@ -213,6 +190,6 @@ python -m src.cli cafa5 --data-dir ./data/cafa5 --top-k-terms 25
 }
 ```
 
-## License
+## Contributing
 
-MIT License
+See [CONTRIBUTING.md](CONTRIBUTING.md).
