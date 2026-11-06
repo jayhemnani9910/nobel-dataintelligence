@@ -193,3 +193,7 @@ These are the literature R² values the comparison code (`vibropredict/evaluatio
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE). The `graphein` dependency pulls in `bioservices`, which is GPLv3.
